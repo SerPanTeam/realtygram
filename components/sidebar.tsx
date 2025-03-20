@@ -1,71 +1,71 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Home, Search, Compass, MessageCircle, Heart, PlusSquare, LogOut } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { NotificationsPanel } from "./notifications-panel"
-import { SearchPanel } from "./search-panel"
-import { useAuth } from "@/lib/auth-context"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { formatImageUrl } from "@/lib/image-utils"
-import { notificationApi } from "@/lib/api"
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Home, Search, Compass, MessageCircle, Heart, PlusSquare, LogOut } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { NotificationsPanel } from "./notifications-panel";
+import { SearchPanel } from "./search-panel";
+import { useAuth } from "@/lib/auth-context";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { formatImageUrl } from "@/lib/image-utils";
+import { notificationApi } from "@/lib/api";
 
 interface SidebarProps {
-  className?: string
+  className?: string;
 }
 
 export function Sidebar({ className }: SidebarProps) {
-  const pathname = usePathname()
-  const [showNotifications, setShowNotifications] = useState(false)
-  const [showSearch, setShowSearch] = useState(false)
-  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0)
+  const pathname = usePathname();
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
   // Always call useAuth to prevent hook order issues
-  const auth = useAuth()
-  const user = auth.user
-  const logout = auth.logout
+  const auth = useAuth();
+  const user = auth.user;
+  const logout = auth.logout;
 
   // Получаем количество непрочитанных уведомлений
   useEffect(() => {
     const fetchUnreadNotificationsCount = async () => {
-      if (!user?.token) return
+      if (!user?.token) return;
 
       try {
-        const notifications = await notificationApi.list(user.token)
-        const unreadCount = notifications.filter((notification) => !notification.isRead).length
-        setUnreadNotificationsCount(unreadCount)
+        const notifications = await notificationApi.list(user.token);
+        const unreadCount = notifications.filter((notification) => !notification.isRead).length;
+        setUnreadNotificationsCount(unreadCount);
       } catch (error) {
-        console.error("Error fetching notifications:", error)
+        console.error("Error fetching notifications:", error);
       }
-    }
+    };
 
     // Загружаем при монтировании компонента
-    fetchUnreadNotificationsCount()
+    fetchUnreadNotificationsCount();
 
     // Устанавливаем интервал для периодического обновления
-    const interval = setInterval(fetchUnreadNotificationsCount, 60000) // Каждую минуту
+    const interval = setInterval(fetchUnreadNotificationsCount, 60000); // Каждую минуту
 
-    return () => clearInterval(interval)
-  }, [user])
+    return () => clearInterval(interval);
+  }, [user]);
 
   // Сбрасываем счетчик непрочитанных уведомлений при открытии панели уведомлений
   useEffect(() => {
     if (showNotifications) {
-      setUnreadNotificationsCount(0)
+      setUnreadNotificationsCount(0);
     }
-  }, [showNotifications])
+  }, [showNotifications]);
 
   // Проверка, активна ли страница Explore или её подстраницы
-  const isExploreActive = pathname === "/explore" || pathname.startsWith("/explore/")
+  const isExploreActive = pathname === "/explore" || pathname.startsWith("/explore/");
 
   // Базовые навигационные элементы, доступные всем пользователям
   const publicNavItems = [
     { icon: Home, label: "Home", href: "/feed" },
     { icon: Search, label: "Search", href: "#", onClick: () => setShowSearch(!showSearch) },
     { icon: Compass, label: "Explore", href: "/explore" },
-  ]
+  ];
 
   // Навигационные элементы, доступные только авторизованным пользователям
   const authNavItems = [
@@ -78,10 +78,10 @@ export function Sidebar({ className }: SidebarProps) {
       badge: unreadNotificationsCount,
     },
     { icon: PlusSquare, label: "Create", href: "/create" },
-  ]
+  ];
 
   // Объединяем навигационные элементы в зависимости от статуса авторизации
-  const navItems = user ? [...publicNavItems, ...authNavItems] : publicNavItems
+  const navItems = user ? [...publicNavItems, ...authNavItems] : publicNavItems;
 
   return (
     <aside
@@ -96,7 +96,7 @@ export function Sidebar({ className }: SidebarProps) {
           <ul className="space-y-2">
             {navItems.map((item) => {
               // Специальная проверка для Explore
-              const isActive = item.label === "Explore" ? isExploreActive : pathname === item.href
+              const isActive = item.label === "Explore" ? isExploreActive : pathname === item.href;
 
               return (
                 <li key={item.label} className="relative">
@@ -105,25 +105,30 @@ export function Sidebar({ className }: SidebarProps) {
                       onClick={item.onClick}
                       className={cn(
                         "flex w-full items-center rounded-md px-3 py-3 text-sm font-medium transition-colors",
-                        isActive ? "bg-black text-white" : "hover:bg-gray-100",
+                        isActive ? "bg-black text-white" : "hover:bg-gray-100"
                       )}
                     >
                       <div className="relative">
                         <item.icon className="mr-3 h-5 w-5" />
-                        {item.badge > 0 && (
+                        {/* {item.badge > 0 && (
                           <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
                             {item.badge > 99 ? "99+" : item.badge}
                           </span>
-                        )}
+                        )} */}
                       </div>
                       {item.label}
+                      {item.badge > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+                          {item.badge > 99 ? "99+" : item.badge}
+                        </span>
+                      )}
                     </button>
                   ) : (
                     <Link
                       href={item.href}
                       className={cn(
                         "flex items-center rounded-md px-3 py-3 text-sm font-medium transition-colors",
-                        isActive ? "bg-black text-white" : "hover:bg-gray-100",
+                        isActive ? "bg-black text-white" : "hover:bg-gray-100"
                       )}
                     >
                       <item.icon className="mr-3 h-5 w-5" />
@@ -131,7 +136,7 @@ export function Sidebar({ className }: SidebarProps) {
                     </Link>
                   )}
                 </li>
-              )
+              );
             })}
 
             {user && (
@@ -141,7 +146,7 @@ export function Sidebar({ className }: SidebarProps) {
                     href={`/profile/${user.username}`}
                     className={cn(
                       "flex items-center rounded-md px-3 py-3 text-sm font-medium transition-colors",
-                      pathname === `/profile/${user.username}` ? "bg-black text-white" : "hover:bg-gray-100",
+                      pathname === `/profile/${user.username}` ? "bg-black text-white" : "hover:bg-gray-100"
                     )}
                   >
                     <Avatar className="h-5 w-5 mr-3">
@@ -184,6 +189,5 @@ export function Sidebar({ className }: SidebarProps) {
         <NotificationsPanel isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
       )}
     </aside>
-  )
+  );
 }
-

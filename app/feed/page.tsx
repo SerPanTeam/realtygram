@@ -80,10 +80,7 @@ export default function FeedPage() {
         <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
           <div className="flex flex-col justify-center items-center h-screen p-4">
             <p className="text-red-500 mb-4">{error}</p>
-            <Button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-[#0095f6] text-white rounded-md"
-            >
+            <Button onClick={() => window.location.reload()} className="px-4 py-2 bg-[#0095f6] text-white rounded-md">
               Try again
             </Button>
           </div>
@@ -100,13 +97,9 @@ export default function FeedPage() {
         <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
           <div className="flex flex-col justify-center items-center h-screen p-4">
             <h2 className="text-xl font-semibold mb-2">Welcome to your feed</h2>
-            <p className="text-[#737373] mb-4">
-              Follow users to see their posts here
-            </p>
+            <p className="text-[#737373] mb-4">Follow users to see their posts here</p>
             <Link href="/explore">
-              <Button className="px-4 py-2 bg-[#0095f6] text-white rounded-md">
-                Explore users
-              </Button>
+              <Button className="px-4 py-2 bg-[#0095f6] text-white rounded-md">Explore users</Button>
             </Link>
           </div>
         </main>
@@ -133,17 +126,13 @@ export default function FeedPage() {
             <div className="flex h-16 w-16 items-center justify-center rounded-full border border-[#dbdbdb]">
               <Check className="h-8 w-8 text-[#0095f6]" />
             </div>
-            <h3 className="mt-4 text-lg font-medium">
-              You've seen all the updates
-            </h3>
-            <p className="text-sm text-[#737373]">
-              You have viewed all new publications
-            </p>
+            <h3 className="mt-4 text-lg font-medium">You've seen all the updates</h3>
+            <p className="text-sm text-[#737373]">You have viewed all new publications</p>
           </div>
 
           {/* Футер */}
           <footer className="mt-8 text-center text-xs text-[#737373] pb-16 md:pb-4">
-            <p>© 2024 RealtyGRAM</p>
+            <p>© 2025 RealtyGRAM</p>
           </footer>
         </div>
       </main>
