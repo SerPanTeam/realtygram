@@ -24,9 +24,11 @@ export default function ForgotPasswordPage() {
     setError("");
 
     // Удаляем слеш в конце URL, если он есть
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL?.endsWith("/")
-      ? process.env.NEXT_PUBLIC_API_URL.slice(0, -1)
-      : process.env.NEXT_PUBLIC_API_URL;
+    const baseUrl = "https://api.panchenko.work";
+
+    // const baseUrl = process.env.NEXT_PUBLIC_API_URL?.endsWith("/")
+    //   ? process.env.NEXT_PUBLIC_API_URL.slice(0, -1)
+    //   : process.env.NEXT_PUBLIC_API_URL;
 
     try {
       if (!identifier) {
@@ -42,6 +44,7 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({ identifier: identifier }),
       });
 
+      console.log(`${baseUrl}/api/auth/forgot-password`);
       const data = await response.json();
 
       if (!response.ok) {

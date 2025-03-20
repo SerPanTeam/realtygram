@@ -315,9 +315,9 @@ export default function PostPage({ params }: { params: { slug: string } }) {
 
                 {/* Форма комментария */}
                 <form onSubmit={handleComment} className="flex items-center border-t border-[#dbdbdb] pt-3">
-                  <button type="button" className="mr-2">
+                  {/* <button type="button" className="mr-2">
                     <Smile className="h-6 w-6 text-[#262626]" />
-                  </button>
+                  </button> */}
                   <Input
                     ref={commentInputRef}
                     type="text"

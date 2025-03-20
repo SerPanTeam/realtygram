@@ -12,6 +12,8 @@ import { formatImageUrl } from "@/lib/image-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Категории для табов
+// const CATEGORIES = [];
+
 const CATEGORIES = [
   { id: "all", label: "All" },
   { id: "residential", label: "Residential" },

@@ -132,7 +132,7 @@ export default function FeedPage() {
 
           {/* Футер */}
           <footer className="mt-8 text-center text-xs text-[#737373] pb-16 md:pb-4">
-            <p>© 2025 RealtyGRAM</p>
+            <p>© 2025 RealtyGRAM. Social network for real estate professionals</p>
           </footer>
         </div>
       </main>

@@ -91,6 +91,7 @@ export function Sidebar({ className }: SidebarProps) {
       <div className="flex h-full flex-col p-4">
         <Link href="/" className="mb-8 py-4 text-2xl font-bold italic tracking-tighter">
           <Image src="/log.png" alt="RealtyGRAM Logo" width={250} className="object-contain" />
+          <h1 className="text-4xl font-bold italic tracking-tighter">RealtyGRAM</h1>
         </Link>
 
         <nav className="flex-1">
