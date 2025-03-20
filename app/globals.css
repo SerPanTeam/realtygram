@@ -56,6 +56,13 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  html,
+  body {
+    overflow-x: hidden;
+    position: relative;
+    width: 100%;
+  }
 }
 
 /* Скрыть скролл, но сохранить функциональность */

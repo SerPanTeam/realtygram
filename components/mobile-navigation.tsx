@@ -3,12 +3,12 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Search, Compass, MessageCircle, Heart, PlusSquare, X, User } from "lucide-react"
-import { SearchIcon } from "lucide-react"
+import { Home, Search, Compass, MessageCircle, Heart, User } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Input } from "@/components/ui/input"
 import { useAuth } from "@/lib/auth-context"
 import { notificationApi } from "@/lib/api"
+import { SearchPanel } from "./search-panel"
+import { NotificationsPanel } from "./notifications-panel"
 
 interface MobileNavigationProps {
   className?: string
@@ -51,114 +51,87 @@ export function MobileNavigation({ className }: MobileNavigationProps) {
     }
   }, [showNotifications])
 
-  // Базовые навигационные элементы, доступные всем пользователям
-  const publicNavItems = [
-    { icon: Home, label: "Home", href: "/feed" },
-    { icon: Search, label: "Search", href: "#", onClick: () => setShowSearch(true) },
-    { icon: Compass, label: "Explore", href: "/explore" },
-  ]
-
-  // Навигационные элементы, доступные только авторизованным пользователям
-  const authNavItems = [
-    { icon: MessageCircle, label: "Messages", href: "/messages" },
-    {
-      icon: Heart,
-      label: "Notifications",
-      href: "#",
-      onClick: () => setShowNotifications(true),
-      badge: unreadNotificationsCount,
-    },
-    { icon: PlusSquare, label: "Create", href: "/create" },
-  ]
-
-  // Добавляем профиль для всех пользователей (для неавторизованных будет перенаправление на логин)
-  const profileItem = {
-    icon: User,
-    label: "Profile",
-    href: user ? `/profile/${user.username}` : "/login",
-  }
-
-  // Объединяем навигационные элементы в зависимости от статуса авторизации
-  const navItems = user ? [...publicNavItems, ...authNavItems, profileItem] : [...publicNavItems, profileItem]
-
   // Проверка, активна ли страница Explore или её подстраницы
   const isExploreActive = pathname === "/explore" || pathname.startsWith("/explore/")
+  // Проверка, активна ли страница Feed
+  const isFeedActive = pathname === "/feed"
+  // Проверка, активна ли страница Messages или её подстраницы
+  const isMessagesActive = pathname === "/messages" || pathname.startsWith("/messages/")
+  // Проверка, активна ли страница Profile или её подстраницы
+  const isProfileActive = pathname === "/profile" || pathname.startsWith("/profile/")
+  // Проверка, активна ли страница Create или её подстраницы
+  const isCreateActive = pathname === "/create" || pathname.startsWith("/create/")
+  // Проверка, активна ли страница Search
+  const isSearchActive = pathname === "/search"
 
   return (
     <>
-      <nav className={cn("fixed bottom-0 left-0 z-40 w-full border-t border-[#dbdbdb] bg-white", className)}>
+      <nav className={cn("fixed bottom-0 left-0 z-50 w-full border-t border-[#dbdbdb] bg-white", className)}>
         <div className="flex items-center justify-around py-2 relative">
-          {navItems.map((item) => {
-            // Специальная проверка для Explore
-            const isActive = item.label === "Explore" ? isExploreActive : pathname === item.href
+          <Link
+            href="/feed"
+            className={cn("flex flex-col items-center p-2 text-xs", isFeedActive ? "text-black" : "text-gray-500")}
+          >
+            <Home className="h-6 w-6" />
+            <span className="mt-1">Home</span>
+          </Link>
 
-            if (item.onClick) {
-              return (
-                <button
-                  key={item.label}
-                  onClick={item.onClick}
-                  className={cn("flex flex-col items-center p-2 text-xs", isActive ? "text-black" : "text-gray-500")}
-                >
-                  <div className="relative">
-                    <item.icon className="h-6 w-6" />
-                    {item.badge > 0 && (
-                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
-                        {item.badge > 99 ? "99+" : item.badge}
-                      </span>
-                    )}
-                  </div>
-                  <span className="mt-1">{item.label}</span>
-                </button>
-              )
-            }
+          <button
+            onClick={() => setShowSearch(true)}
+            className={cn(
+              "flex flex-col items-center p-2 text-xs",
+              showSearch || isSearchActive ? "text-black" : "text-gray-500",
+            )}
+          >
+            <Search className="h-6 w-6" />
+            <span className="mt-1">Search</span>
+          </button>
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn("flex flex-col items-center p-2 text-xs", isActive ? "text-black" : "text-gray-500")}
-              >
-                <item.icon className="h-6 w-6" />
-                <span className="mt-1">{item.label}</span>
-              </Link>
-            )
-          })}
+          <Link
+            href="/explore"
+            className={cn("flex flex-col items-center p-2 text-xs", isExploreActive ? "text-black" : "text-gray-500")}
+          >
+            <Compass className="h-6 w-6" />
+            <span className="mt-1">Explore</span>
+          </Link>
+
+          <Link
+            href="/messages"
+            className={cn("flex flex-col items-center p-2 text-xs", isMessagesActive ? "text-black" : "text-gray-500")}
+          >
+            <MessageCircle className="h-6 w-6" />
+            <span className="mt-1">Messages</span>
+          </Link>
+
+          <button
+            onClick={() => setShowNotifications(true)}
+            className={cn("flex flex-col items-center p-2 text-xs", showNotifications ? "text-black" : "text-gray-500")}
+          >
+            <div className="relative">
+              <Heart className="h-6 w-6" />
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+                  {unreadNotificationsCount > 99 ? "99+" : unreadNotificationsCount}
+                </span>
+              )}
+            </div>
+            <span className="mt-1">Notifications</span>
+          </button>
+
+          <Link
+            href={user ? `/profile/${user.username}` : "/login"}
+            className={cn("flex flex-col items-center p-2 text-xs", isProfileActive ? "text-black" : "text-gray-500")}
+          >
+            <User className="h-6 w-6" />
+            <span className="mt-1">Profile</span>
+          </Link>
         </div>
       </nav>
 
-      {/* На мобильных устройствах панели должны быть полноэкранными */}
-      {showSearch && (
-        <div className="fixed inset-0 z-50 bg-white">
-          <div className="p-4 border-b border-[#dbdbdb] flex items-center">
-            <button onClick={() => setShowSearch(false)} className="mr-4">
-              <X className="h-6 w-6" />
-            </button>
-            <h2 className="font-semibold text-lg">Search</h2>
-          </div>
-          <div className="p-4">
-            <div className="relative">
-              <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#737373]" />
-              <Input type="text" placeholder="Search" className="pl-10 pr-10 h-10 bg-[#efefef] border-none" autoFocus />
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Выплывающие панели */}
+      {showSearch && <SearchPanel isOpen={showSearch} onClose={() => setShowSearch(false)} />}
       {showNotifications && (
-        <div className="fixed inset-0 z-50 bg-white">
-          <div className="p-4 border-b border-[#dbdbdb] flex items-center">
-            <button onClick={() => setShowNotifications(false)} className="mr-4">
-              <X className="h-6 w-6" />
-            </button>
-            <h2 className="font-semibold text-lg">Notifications</h2>
-          </div>
-          <div className="p-4 border-b border-[#dbdbdb]">
-            <h3 className="font-medium text-sm">New</h3>
-          </div>
-          <div className="p-6 text-center">
-            <p className="text-[#737373]">No notifications yet</p>
-          </div>
-        </div>
+        <NotificationsPanel isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
       )}
     </>
   )

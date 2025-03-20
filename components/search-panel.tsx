@@ -11,6 +11,8 @@ import { useOnClickOutside } from "@/hooks/use-click-outside"
 import { userApi } from "@/lib/api"
 import type { User } from "@/lib/types"
 import { formatImageUrl } from "@/lib/image-utils"
+import { useMediaQuery } from "@/hooks/use-media-query"
+import { cn } from "@/lib/utils"
 
 interface SearchPanelProps {
   isOpen: boolean
@@ -24,6 +26,7 @@ export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
   const [loading, setLoading] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const isMobile = useMediaQuery("(max-width: 768px)")
 
   useOnClickOutside(panelRef, onClose)
 
@@ -110,6 +113,113 @@ export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
 
   if (!isOpen) return null
 
+  // Мобильная версия панели поиска
+  if (isMobile) {
+    return (
+      <div
+        className={cn(
+          "fixed inset-0 bottom-16 z-40 bg-white transition-transform duration-300 ease-in-out",
+          isOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        <div className="flex h-full flex-col">
+          <div className="p-4 border-b border-[#dbdbdb] flex items-center">
+            <button onClick={onClose} className="mr-4">
+              <X className="h-6 w-6" />
+            </button>
+            <h2 className="font-semibold text-lg">Search</h2>
+          </div>
+          <div className="p-4 overflow-y-auto flex-1">
+            <div className="relative mb-4">
+              <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#737373]" />
+              <Input
+                ref={inputRef}
+                type="text"
+                placeholder="Search"
+                className="pl-10 pr-10 h-10 bg-[#efefef] border-none"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button
+                  onClick={clearSearch}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#737373] hover:text-black"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            <div className="mt-2">
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-black"></div>
+                </div>
+              ) : searchResults.length > 0 ? (
+                <div className="divide-y divide-[#dbdbdb]">
+                  {searchResults.map((user) => (
+                    <Link
+                      key={user.id}
+                      href={`/profile/${user.username}`}
+                      onClick={() => addToRecentSearches(user)}
+                      className="flex items-center p-4 hover:bg-gray-50"
+                    >
+                      <Avatar className="h-12 w-12 mr-3">
+                        <AvatarImage src={formatImageUrl(user.img)} alt={user.username} />
+                        <AvatarFallback>{user.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold">{user.username}</p>
+                        <p className="text-sm text-[#737373]">{user.bio || user.fullName}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : searchQuery ? (
+                <div className="text-center py-8">
+                  <p className="text-[#737373]">No results found for "{searchQuery}"</p>
+                </div>
+              ) : recentSearches.length > 0 ? (
+                <>
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="font-medium text-sm">Recent</h3>
+                  </div>
+                  <div className="divide-y divide-[#dbdbdb]">
+                    {recentSearches.map((user) => (
+                      <div key={user.id} className="flex items-center p-4 hover:bg-gray-50">
+                        <Link
+                          href={`/profile/${user.username}`}
+                          className="flex items-center flex-1"
+                          onClick={() => onClose()}
+                        >
+                          <Avatar className="h-12 w-12 mr-3">
+                            <AvatarImage src={formatImageUrl(user.img)} alt={user.username} />
+                            <AvatarFallback>{user.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold">{user.username}</p>
+                            <p className="text-sm text-[#737373]">{user.bio || user.fullName}</p>
+                          </div>
+                        </Link>
+                        <button
+                          onClick={(e) => removeFromRecentSearches(user.id, e)}
+                          className="text-[#737373] hover:text-black"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Десктопная версия панели поиска
   return (
     <div
       ref={panelRef}

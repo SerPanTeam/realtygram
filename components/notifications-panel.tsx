@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -10,31 +9,22 @@ import { notificationApi } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import type { Notification } from "@/lib/types"
 import { formatImageUrl } from "@/lib/image-utils"
+import { useMediaQuery } from "@/hooks/use-media-query"
+import { X } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface NotificationsPanelProps {
   isOpen: boolean
   onClose: () => void
 }
 
-// Определяем интерфейс Profile
-interface Profile {
-  id: string
-  username: string
-  img: string
-}
-
-// Интерфейс для расширенного уведомления с данными пользователя
-interface EnhancedNotification extends Notification {
-  userProfile?: Profile
-}
-
-// Добавим обработку прочтения уведомлений при открытии панели
 export function NotificationsPanel({ isOpen, onClose }: NotificationsPanelProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const panelRef = useRef<HTMLDivElement>(null)
   const { user } = useAuth()
   const router = useRouter()
+  const isMobile = useMediaQuery("(max-width: 768px)")
 
   useOnClickOutside(panelRef, onClose)
 
@@ -61,33 +51,8 @@ export function NotificationsPanel({ isOpen, onClose }: NotificationsPanelProps)
       }
     } catch (err) {
       console.error("Error fetching notifications:", err)
-      // Если API недоступно, используем моковые данные как запасной вариант
-      setNotifications([
-        {
-          id: 1,
-          type: "like",
-          message: "sashaa liked your photo.",
-          createdAt: new Date().toISOString(),
-          isRead: false,
-          initiator: {
-            id: 101,
-            username: "sashaa",
-            img: "/placeholder.svg?height=32&width=32",
-          },
-        },
-        {
-          id: 2,
-          type: "comment",
-          message: "sashaa commented on your photo.",
-          createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-          isRead: true,
-          initiator: {
-            id: 101,
-            username: "sashaa",
-            img: "/placeholder.svg?height=32&width=32",
-          },
-        },
-      ])
+      // Если API недоступно, используем пустой массив
+      setNotifications([])
     } finally {
       setLoading(false)
     }
@@ -117,6 +82,70 @@ export function NotificationsPanel({ isOpen, onClose }: NotificationsPanelProps)
 
   if (!isOpen) return null
 
+  // Мобильная версия панели уведомлений
+  if (isMobile) {
+    return (
+      <div
+        className={cn(
+          "fixed inset-0 bottom-16 z-40 bg-white transition-transform duration-300 ease-in-out",
+          isOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        <div className="flex h-full flex-col">
+          <div className="p-4 border-b border-[#dbdbdb] flex items-center">
+            <button onClick={onClose} className="mr-4">
+              <X className="h-6 w-6" />
+            </button>
+            <h2 className="font-semibold text-lg">Notifications</h2>
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center items-center h-40">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-black"></div>
+            </div>
+          ) : (
+            <div className="overflow-y-auto flex-1">
+              {notifications.length === 0 ? (
+                <div className="p-6 text-center">
+                  <p className="text-[#737373]">No notifications yet</p>
+                </div>
+              ) : (
+                notifications.map((notification) => (
+                  <Link
+                    key={notification.id}
+                    href={notification.initiator ? `/profile/${notification.initiator.username}` : "#"}
+                    onClick={() => handleNotificationClick(notification)}
+                    className="flex items-center p-4 hover:bg-gray-50 border-b border-[#dbdbdb]"
+                  >
+                    <Avatar className="h-10 w-10 mr-3">
+                      <AvatarImage
+                        src={notification.initiator ? formatImageUrl(notification.initiator.img) : "/placeholder.svg"}
+                        alt={notification.initiator?.username || "User"}
+                      />
+                      <AvatarFallback>
+                        {notification.initiator ? notification.initiator.username.slice(0, 2).toUpperCase() : "UN"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <p className="text-sm">
+                        {notification.initiator && (
+                          <span className="font-semibold hover:underline">{notification.initiator.username}</span>
+                        )}{" "}
+                        {notification.message.replace(/^[a-zA-Z0-9_]+ /, "")}
+                      </p>
+                      <p className="text-xs text-[#737373]">{new Date(notification.createdAt).toLocaleDateString()}</p>
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Десктопная версия панели уведомлений
   return (
     <div
       ref={panelRef}
@@ -166,17 +195,6 @@ export function NotificationsPanel({ isOpen, onClose }: NotificationsPanelProps)
                     <span className="text-[#737373] ml-2">{new Date(notification.createdAt).toLocaleDateString()}</span>
                   </p>
                 </div>
-                {notification.type === "post" && (
-                  <div className="ml-2 w-10 h-10 relative">
-                    <Image
-                      src="/placeholder.svg?height=40&width=40"
-                      alt="Post thumbnail"
-                      width={40}
-                      height={40}
-                      className="object-cover"
-                    />
-                  </div>
-                )}
               </div>
             ))
           )}

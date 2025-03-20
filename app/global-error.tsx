@@ -23,7 +23,7 @@ export default function GlobalError({
         <div className="flex min-h-screen flex-col items-center justify-center bg-white p-4">
           <div className="w-full max-w-md text-center">
             <div className="mb-8">
-              <h1 className="text-4xl font-bold italic tracking-tighter">RealtyGRAM</h1>
+              <h1 className="text-4xl font-bold italic tracking-tighter">ICMGRAM</h1>
             </div>
 
             <div className="mb-8">

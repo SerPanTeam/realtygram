@@ -16,6 +16,7 @@ import type { Profile, ChatMessage } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { toast } from "@/hooks/use-toast"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface ChatConversationProps {
   recipientUsername: string
@@ -30,7 +31,6 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [connected, setConnected] = useState(false)
-  const [useRestFallback, setUseRestFallback] = useState(true)
   const [fetchingMessages, setFetchingMessages] = useState(false)
   const [accessDenied, setAccessDenied] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -87,7 +87,7 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
           // Пробуем получить ID пользователя через поиск
           try {
             const response = await fetch(
-              `https://api.panchenko.work/users/search?username=${encodeURIComponent(recipientUsername)}`,
+              `${process.env.NEXT_PUBLIC_API_URL}/users/search?username=${encodeURIComponent(recipientUsername)}`,
               {
                 headers: {
                   Authorization: `Bearer ${user.token}`,
@@ -301,7 +301,6 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
             const uniqueMessages = removeDuplicates(normalizedMessages)
             setMessages(uniqueMessages)
             messagesRef.current = uniqueMessages
-          } else {
           }
         }
       } catch (error) {
@@ -321,13 +320,9 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
     // Initialize chat immediately
     initializeChat()
 
-    // Clean up every 5 minutes to prevent memory leaks
-    const cleanupInterval = setInterval(() => {}, 5 * 60 * 1000)
-
     return () => {
       mounted = false
       chatService.disconnectFromSocket()
-      clearInterval(cleanupInterval)
     }
   }, [user, recipient, roomId, accessDenied])
 
@@ -359,9 +354,9 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
     return uniqueMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
   }, [])
 
-  // Scroll to bottom on initial load
+  // Scroll to bottom on initial load and when new messages arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView()
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
   const handleSendMessage = (e: React.FormEvent) => {
@@ -461,12 +456,6 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
     }
   }
 
-  const handleViewProfile = () => {
-    if (recipient) {
-      router.push(`/profile/${recipient.username}`)
-    }
-  }
-
   // Принудительное обновление сообщений из API
   const refreshMessages = async () => {
     if (!roomId) return
@@ -513,19 +502,6 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
     }
   }
 
-  // Toggle REST API fallback
-  const toggleRestFallback = () => {
-    const newValue = !useRestFallback
-    setUseRestFallback(newValue)
-
-    toast({
-      title: newValue ? "REST API enabled" : "REST API disabled",
-      description: newValue
-        ? "Messages will be sent via REST API if socket is unavailable"
-        : "Messages will only be sent via socket",
-    })
-  }
-
   // Очистка истории сообщений
   const clearChatHistory = () => {
     chatService.clearMessagesToLocalStorage(roomId)
@@ -539,8 +515,39 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
   // Show loading state
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-black"></div>
+      <div className="h-full flex flex-col">
+        <div className="p-4 border-b border-[#dbdbdb] flex items-center justify-between">
+          {isMobile && (
+            <Button variant="ghost" size="icon" className="mr-2" disabled>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          )}
+          <div className="flex items-center">
+            <Skeleton className="h-10 w-10 rounded-full mr-3" />
+            <div>
+              <Skeleton className="h-4 w-24 mb-1" />
+              <Skeleton className="h-3 w-32" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 p-4 space-y-4">
+          <div className="flex justify-start">
+            <Skeleton className="h-8 w-8 rounded-full mr-2" />
+            <Skeleton className="h-12 w-48 rounded-2xl" />
+          </div>
+          <div className="flex justify-end">
+            <Skeleton className="h-12 w-48 rounded-2xl" />
+          </div>
+          <div className="flex justify-start">
+            <Skeleton className="h-8 w-8 rounded-full mr-2" />
+            <Skeleton className="h-12 w-36 rounded-2xl" />
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-[#dbdbdb]">
+          <Skeleton className="h-10 w-full rounded-full" />
+        </div>
       </div>
     )
   }
@@ -570,7 +577,7 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col pb-16 md:pb-0">
       {/* Header */}
       <div className="p-4 border-b border-[#dbdbdb] flex items-center justify-between">
         <div className="flex items-center">
@@ -631,7 +638,7 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 pb-2 space-y-4">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-4">
             <Avatar className="h-16 w-16 mb-4">
@@ -649,12 +656,7 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
         ) : (
           messages.map((message, index) => {
             // Определяем, является ли текущий пользователь отправителем сообщения
-            // Используем явное сравнение ID и сохраняем результат в переменную
             const isCurrentUserSender = user && Number(message.senderId) === Number(user.id)
-
-            // Добавим логирование для отладки
-            if (index === 0) {
-            }
 
             return (
               <div

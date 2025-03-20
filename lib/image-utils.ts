@@ -1,16 +1,22 @@
-export function formatImageUrl(imageUrl: string | undefined | null): string {
-  if (!imageUrl) {
-    return "/placeholder.svg?height=400&width=400"
+export function formatImageUrl(url: string | undefined | null): string {
+  if (!url) return "/placeholder.svg?height=300&width=300"
+
+  // Если URL уже абсолютный (начинается с http:// или https://)
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url
   }
 
-  if (imageUrl.startsWith("http")) {
-    return imageUrl
+  // Если URL относительный (начинается с /uploads/)
+  if (url.startsWith("/uploads/")) {
+    return `https://api.panchenko.work${url}`
   }
 
-  if (imageUrl.startsWith("uploads/")) {
-    return `https://api.panchenko.work/${imageUrl}`
+  // Если URL относительный (начинается с uploads/)
+  if (url.startsWith("uploads/")) {
+    return `https://api.panchenko.work/${url}`
   }
 
-  return imageUrl
+  // Для других случаев возвращаем как есть
+  return url
 }
 

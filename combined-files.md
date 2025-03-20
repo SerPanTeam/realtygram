@@ -190,14 +190,14 @@
 ├── middleware.ts
 ├── next-env.d.ts
 ├── next.config.mjs
-├── package copy.json
 ├── package-lock.json
 ├── package.json
 ├── pnpm-lock.yaml
 ├── postcss.config.mjs
 ├── server-fix.txt
 ├── tailwind.config.js
-└── tsconfig.json
+├── tsconfig.json
+└── v0-user-next.config.mjs
 
 ```
 
@@ -467,7 +467,7 @@ export default function CreateRedirectPage() {
 ```typescript
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Sidebar } from "@/components/sidebar"
@@ -477,7 +477,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { ImagePlus, X, Smile, MapPin, Tag } from "lucide-react"
 import { useDropzone } from "react-dropzone"
-import { postApi, uploadApi } from "@/lib/api"
+import { postApi, uploadApi, profileApi } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { toast } from "@/hooks/use-toast"
 import { formatImageUrl } from "@/lib/image-utils"
@@ -493,9 +493,34 @@ export default function CreatePostPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [createdPost, setCreatedPost] = useState<any>(null)
+  const [userProfileImage, setUserProfileImage] = useState<string>("/placeholder.svg")
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const { user } = useAuth()
+
+  // Загружаем актуальные данные пользователя, включая изображение
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (user?.username && user?.token) {
+        try {
+          const { profile } = await profileApi.get(user.username, user.token)
+          if (profile && profile.img) {
+            const formattedImageUrl = formatImageUrl(profile.img)
+            console.log("Fetched user profile image:", formattedImageUrl)
+            setUserProfileImage(formattedImageUrl)
+          } else {
+            console.log("No profile image found in profile data")
+            setUserProfileImage("/placeholder.svg")
+          }
+        } catch (error) {
+          console.error("Error fetching user profile:", error)
+          setUserProfileImage("/placeholder.svg")
+        }
+      }
+    }
+
+    fetchUserProfile()
+  }, [user])
 
   // Check authentication
   if (!user) {
@@ -523,23 +548,21 @@ export default function CreatePostPage() {
       "image/*": [".jpeg", ".jpg", ".png", ".gif"],
     },
     maxFiles: 1,
+    disabled: step !== 1,
   })
 
   // Handle tag addition
-  const handleAddTag = useCallback(() => {
+  const handleAddTag = () => {
     if (tagInput.trim() && !tagList.includes(tagInput.trim())) {
       setTagList([...tagList, tagInput.trim()])
       setTagInput("")
     }
-  }, [tagInput, tagList, setTagList, setTagInput])
+  }
 
   // Handle tag removal
-  const handleRemoveTag = useCallback(
-    (tag: string) => {
-      setTagList(tagList.filter((t) => t !== tag))
-    },
-    [tagList, setTagList],
-  )
+  const handleRemoveTag = (tag: string) => {
+    setTagList(tagList.filter((t) => t !== tag))
+  }
 
   // Handle form submission
   const handleSubmit = async () => {
@@ -634,7 +657,7 @@ export default function CreatePostPage() {
     <div className="flex min-h-screen bg-white">
       <Sidebar className="hidden md:flex" />
 
-      <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
+      <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px] pb-16 md:pb-0">
         {/* Modal for post creation */}
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-[850px] bg-white rounded-xl overflow-hidden">
@@ -703,11 +726,15 @@ export default function CreatePostPage() {
                       <div className="h-full w-full rounded-full bg-white p-[1.5px]">
                         <div className="h-full w-full rounded-full overflow-hidden">
                           <Image
-                            src={formatImageUrl(user.img) || "/placeholder.svg"}
-                            alt={user.username}
+                            src={userProfileImage || "/placeholder.svg"}
+                            alt={user.username || "User"}
                             width={32}
                             height={32}
                             className="object-cover"
+                            onError={(e) => {
+                              console.error("Error loading user image:", e)
+                              ;(e.target as HTMLImageElement).src = "/placeholder.svg"
+                            }}
                           />
                         </div>
                       </div>
@@ -869,12 +896,13 @@ export default function Error({
 "use client"
 
 import { useState, useEffect } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { Sidebar } from "@/components/sidebar"
 import { MobileNavigation } from "@/components/mobile-navigation"
 import { postApi } from "@/lib/api"
 import type { Post } from "@/lib/types"
+import { formatImageUrl } from "@/lib/image-utils"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function ForYouPage() {
   const [posts, setPosts] = useState<Post[]>([])
@@ -906,34 +934,44 @@ export default function ForYouPage() {
       <Sidebar className="hidden md:flex" />
 
       <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
-        <div className="mx-auto max-w-7xl py-6 px-4">
-          <h1 className="text-2xl font-bold mb-6">For You</h1>
+        <div className="mx-auto max-w-full md:max-w-7xl py-4 px-3 md:py-6 md:px-4 pb-16 md:pb-4">
+          <h1 className="text-xl md:text-2xl font-bold mb-3 md:mb-6">For You</h1>
 
-          <p className="text-[#737373] mb-6">Posts we think you might like, based on your activity and interests.</p>
+          <p className="text-[#737373] mb-4 md:mb-6 text-sm md:text-base">
+            Posts we think you might like, based on your activity and interests.
+          </p>
 
           {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="aspect-square w-full rounded-md" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+              ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
               {posts.map((post) => (
                 <div key={post.id} className="space-y-2">
                   <Link href={`/p/${post.slug}`} className="relative aspect-square block overflow-hidden rounded-md">
-                    <Image
-                      src={post.img || "/placeholder.svg?height=400&width=400"}
+                    <img
+                      src={formatImageUrl(post.img) || "/placeholder.svg"}
                       alt={post.title || "Post image"}
-                      fill
-                      className="object-cover"
+                      className="object-cover w-full h-full"
                     />
                   </Link>
 
                   <div className="flex items-center justify-between">
-                    <Link href={`/profile/${post.author.username}`} className="font-medium hover:underline">
+                    <Link
+                      href={`/profile/${post.author.username}`}
+                      className="font-medium hover:underline text-sm md:text-base"
+                    >
                       {post.author.username}
                     </Link>
 
-                    <div className="flex items-center space-x-2 text-sm text-[#737373]">
+                    <div className="flex items-center space-x-2 text-xs md:text-sm text-[#737373]">
                       <span>{post.favoritesCount} likes</span>
                       <span>•</span>
                       <span>{post.comments?.length || 0} comments</span>
@@ -993,7 +1031,6 @@ export default function Loading() {
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { Sidebar } from "@/components/sidebar"
 import { MobileNavigation } from "@/components/mobile-navigation"
@@ -1001,8 +1038,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { postApi } from "@/lib/api"
 import type { Post } from "@/lib/types"
 import { useAuth } from "@/lib/auth-context"
-// Import the formatImageUrl utility at the top of the file
 import { formatImageUrl } from "@/lib/image-utils"
+import { Skeleton } from "@/components/ui/skeleton"
 
 // Categories for tabs
 const CATEGORIES = [
@@ -1055,19 +1092,19 @@ export default function ExplorePage() {
       <Sidebar className="hidden md:flex" />
 
       <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
-        <div className="mx-auto max-w-7xl py-6 px-4">
-          <h1 className="text-2xl font-bold mb-6">Explore</h1>
+        <div className="mx-auto max-w-full md:max-w-7xl py-4 px-3 md:py-6 md:px-4 pb-16 md:pb-4">
+          <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Explore</h1>
 
-          {/* Categories */}
-          <div className="mb-6 overflow-x-auto hide-scrollbar">
+          {/* Categories - Scrollable on mobile */}
+          <div className="mb-4 md:mb-6 overflow-x-auto hide-scrollbar px-3 -mx-3 w-screen md:w-auto">
             <Tabs defaultValue="all" onValueChange={setSelectedCategory}>
-              <TabsList className="bg-transparent h-auto p-0 w-auto">
-                <div className="flex space-x-2">
+              <TabsList className="bg-transparent h-auto p-0 w-full">
+                <div className="flex space-x-2 pb-1 overflow-x-auto hide-scrollbar">
                   {CATEGORIES.map((category) => (
                     <TabsTrigger
                       key={category.id}
                       value={category.id}
-                      className="rounded-full bg-[#efefef] px-4 py-2 data-[state=active]:bg-black data-[state=active]:text-white"
+                      className="rounded-full bg-[#efefef] px-3 py-1.5 md:px-4 md:py-2 text-sm whitespace-nowrap data-[state=active]:bg-black data-[state=active]:text-white"
                     >
                       {category.label}
                     </TabsTrigger>
@@ -1076,13 +1113,15 @@ export default function ExplorePage() {
               </TabsList>
 
               {CATEGORIES.map((category) => (
-                <TabsContent key={category.id} value={category.id} className="mt-6">
+                <TabsContent key={category.id} value={category.id} className="mt-4 md:mt-6">
                   {loading ? (
-                    <div className="flex justify-center items-center h-64">
-                      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
+                      {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <Skeleton key={i} className="aspect-square w-full" />
+                      ))}
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
                       {filteredPosts.map((post) => (
                         <ExplorePostCard key={post.id} post={post} token={user?.token} />
                       ))}
@@ -1107,8 +1146,8 @@ interface ExplorePostCardProps {
 
 function ExplorePostCard({ post, token }: ExplorePostCardProps) {
   const [isHovered, setIsHovered] = useState(false)
+  const [isTouched, setIsTouched] = useState(false)
   const [stats, setStats] = useState({ likes: post.favoritesCount, comments: post.comments?.length || 0 })
-
   const [liked, setLiked] = useState(post.favorited === true)
   const [likesCount, setLikesCount] = useState(stats.likes)
   const { user } = useAuth()
@@ -1166,30 +1205,38 @@ function ExplorePostCard({ post, token }: ExplorePostCardProps) {
     }
   }
 
+  // Обработчик для мобильных устройств
+  const handleTouch = (e: React.TouchEvent) => {
+    e.preventDefault()
+    setIsTouched(!isTouched)
+  }
+
+  const imageUrl = formatImageUrl(post.img)
+
   return (
     <Link
       href={`/p/${post.slug}`}
       className="relative aspect-square block overflow-hidden"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onTouchStart={handleTouch}
     >
-      <Image
-        src={formatImageUrl(post.img) || "/placeholder.svg"}
+      <img
+        src={imageUrl || "/placeholder.svg"}
         alt={post.title || "Post image"}
-        fill
-        className="object-cover transition-transform duration-300 ease-in-out hover:scale-105"
+        className="object-cover w-full h-full transition-transform duration-300 ease-in-out hover:scale-105"
       />
 
-      {/* Overlay with info on hover */}
-      {isHovered && (
+      {/* Overlay with info on hover or touch */}
+      {(isHovered || isTouched) && (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center text-white">
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-4">
             {/* Обновим отображение иконки лайка в оверлее при наведении */}
             <div className="flex items-center">
               <button onClick={handleLike} className="flex items-center">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6 mr-2"
+                  className="h-5 w-5 mr-1 md:h-6 md:w-6 md:mr-2"
                   fill={liked ? "currentColor" : "none"}
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -1202,13 +1249,13 @@ function ExplorePostCard({ post, token }: ExplorePostCardProps) {
                     d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
                   />
                 </svg>
-                <span>{likesCount}</span>
+                <span className="text-sm md:text-base">{likesCount}</span>
               </button>
             </div>
             <div className="flex items-center">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6 mr-2"
+                className="h-5 w-5 mr-1 md:h-6 md:w-6 md:mr-2"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -1220,7 +1267,7 @@ function ExplorePostCard({ post, token }: ExplorePostCardProps) {
                   d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                 />
               </svg>
-              <span>{stats.comments}</span>
+              <span className="text-sm md:text-base">{stats.comments}</span>
             </div>
           </div>
         </div>
@@ -1240,7 +1287,6 @@ function ExplorePostCard({ post, token }: ExplorePostCardProps) {
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { Sidebar } from "@/components/sidebar"
 import { MobileNavigation } from "@/components/mobile-navigation"
@@ -1251,6 +1297,7 @@ import type { Post } from "@/lib/types"
 import { useAuth } from "@/lib/auth-context"
 import { formatImageUrl } from "@/lib/image-utils"
 import { formatNumber } from "@/lib/utils"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function TrendingPage() {
   const [posts, setPosts] = useState<Post[]>([])
@@ -1277,24 +1324,36 @@ export default function TrendingPage() {
     fetchPosts()
   }, [user])
 
-  // Форматирование числа лайков и комментариев
-
   return (
     <div className="flex min-h-screen bg-white">
       <Sidebar className="hidden md:flex" />
 
       <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
-        <div className="mx-auto max-w-3xl py-6 px-4">
-          <h1 className="text-2xl font-bold mb-6">Trending</h1>
+        <div className="mx-auto max-w-full md:max-w-3xl py-4 px-3 md:py-6 md:px-4 pb-16 md:pb-4">
+          <h1 className="text-xl md:text-2xl font-bold mb-3 md:mb-6">Trending</h1>
 
-          <p className="text-[#737373] mb-6">See what's trending on ICMGRAM right now.</p>
+          <p className="text-[#737373] mb-4 md:mb-6 text-sm md:text-base">
+            See what's trending on RealtyGRAM right now.
+          </p>
 
           {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
+            <div className="space-y-4 md:space-y-8">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="border border-[#dbdbdb] rounded-lg overflow-hidden">
+                  <div className="p-3 md:p-4 flex items-center">
+                    <Skeleton className="h-8 w-8 rounded-full mr-3" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                  <Skeleton className="aspect-square w-full" />
+                  <div className="p-3 md:p-4 space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-4 md:space-y-8">
               {posts.map((post) => (
                 <TrendingPostCard key={post.id} post={post} token={user?.token} />
               ))}
@@ -1315,8 +1374,6 @@ interface TrendingPostCardProps {
 
 function TrendingPostCard({ post, token }: TrendingPostCardProps) {
   const [stats, setStats] = useState({ likes: post.favoritesCount, comments: post.comments?.length || 0 })
-
-  // Обновляем инициализацию состояния liked
   const [liked, setLiked] = useState(post.favorited === true)
   const [likesCount, setLikesCount] = useState(stats.likes)
   const { user } = useAuth()
@@ -1374,12 +1431,14 @@ function TrendingPostCard({ post, token }: TrendingPostCardProps) {
     }
   }
 
+  const imageUrl = formatImageUrl(post.img)
+
   return (
     <div className="border border-[#dbdbdb] rounded-lg overflow-hidden">
       {/* Шапка поста */}
-      <div className="flex items-center justify-between p-4">
+      <div className="flex items-center justify-between p-3 md:p-4">
         <div className="flex items-center">
-          <Avatar className="h-8 w-8 mr-3">
+          <Avatar className="h-8 w-8 mr-2 md:mr-3">
             <AvatarImage
               src={formatImageUrl(post.author.img) || "/placeholder.svg?height=32&width=32"}
               alt={post.author.username}
@@ -1389,14 +1448,17 @@ function TrendingPostCard({ post, token }: TrendingPostCardProps) {
 
           <div>
             <div className="flex items-center">
-              <Link href={`/profile/${post.author.username}`} className="font-semibold hover:underline">
+              <Link
+                href={`/profile/${post.author.username}`}
+                className="font-semibold hover:underline text-sm md:text-base"
+              >
                 {post.author.username}
               </Link>
             </div>
           </div>
         </div>
 
-        <Button variant="ghost" size="sm" className="text-[#0095f6]">
+        <Button variant="ghost" size="sm" className="text-[#0095f6] text-xs md:text-sm">
           {post.author.following ? "Following" : "Follow"}
         </Button>
       </div>
@@ -1404,24 +1466,23 @@ function TrendingPostCard({ post, token }: TrendingPostCardProps) {
       {/* Изображение поста */}
       <div className="relative aspect-square w-full">
         <Link href={`/p/${post.slug}`}>
-          <Image
-            src={formatImageUrl(post.img) || "/placeholder.svg?height=600&width=600"}
+          <img
+            src={imageUrl || "/placeholder.svg"}
             alt={post.title || "Post image"}
-            fill
-            className="object-cover"
+            className="object-cover w-full h-full"
           />
         </Link>
       </div>
 
       {/* Информация о посте */}
-      <div className="p-4">
+      <div className="p-3 md:p-4">
         <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3 md:space-x-4">
             {/* Обновим отображение иконки лайка */}
             <button onClick={handleLike}>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
+                className="h-5 w-5 md:h-6 md:w-6"
                 fill={liked ? "currentColor" : "none"}
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -1438,7 +1499,7 @@ function TrendingPostCard({ post, token }: TrendingPostCardProps) {
             <button>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
+                className="h-5 w-5 md:h-6 md:w-6"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -1454,7 +1515,7 @@ function TrendingPostCard({ post, token }: TrendingPostCardProps) {
             <button>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
+                className="h-5 w-5 md:h-6 md:w-6"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -1472,7 +1533,7 @@ function TrendingPostCard({ post, token }: TrendingPostCardProps) {
           <button>
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
+              className="h-5 w-5 md:h-6 md:w-6"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -1489,14 +1550,19 @@ function TrendingPostCard({ post, token }: TrendingPostCardProps) {
 
         {/* Обновим отображение количества лайков */}
         <div className="mb-2">
-          <p className="font-medium">{formatNumber(likesCount)} likes</p>
+          <p className="font-medium text-sm md:text-base">{formatNumber(likesCount)} likes</p>
         </div>
 
         <div className="mb-2">
-          <span className="font-medium">{post.author.username}</span> <span>{post.content}</span>
+          <Link href={`/profile/${post.author.username}`} className="font-medium text-sm md:text-base hover:underline">
+            {post.author.username}
+          </Link>{" "}
+          <span className="text-sm md:text-base">
+            {post.content.length > 100 ? `${post.content.substring(0, 100)}...` : post.content}
+          </span>
         </div>
 
-        <Link href={`/p/${post.slug}`} className="text-sm text-[#737373]">
+        <Link href={`/p/${post.slug}`} className="text-xs md:text-sm text-[#737373]">
           View all {formatNumber(stats.comments)} comments
         </Link>
       </div>
@@ -1527,45 +1593,49 @@ export default function FeedLayout({
 ## app\feed\page.tsx
 
 ```typescript
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Sidebar } from "@/components/sidebar"
-import { MobileNavigation } from "@/components/mobile-navigation"
-import { Check } from "lucide-react"
-import { postApi } from "@/lib/api"
-import type { Post as PostType } from "@/lib/types"
-import { useAuth } from "@/lib/auth-context"
-import { FeedPost } from "@/components/feed-post"
+import { useState, useEffect } from "react";
+import { Sidebar } from "@/components/sidebar";
+import { MobileNavigation } from "@/components/mobile-navigation";
+import { Check } from "lucide-react";
+import { postApi } from "@/lib/api";
+import type { Post as PostType } from "@/lib/types";
+import { useAuth } from "@/lib/auth-context";
+import { FeedPost } from "@/components/feed-post";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function FeedPage() {
-  const [posts, setPosts] = useState<PostType[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const { user } = useAuth()
+  const [posts, setPosts] = useState<PostType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchPosts = async () => {
-      setLoading(true)
+      setLoading(true);
+      console.log(user);
       try {
         if (user && user.token) {
           // Get feed for logged in user
-          const { posts } = await postApi.feed({}, user.token)
-          setPosts(posts)
+          const { posts } = await postApi.feed({}, user.token);
+          setPosts(posts);
         } else {
           // If user is not logged in, redirect to login page
-          window.location.href = "/login"
+          window.location.href = "/login";
         }
       } catch (err) {
-        console.error("Error fetching posts:", err)
-        setError("Failed to load posts. Please try again.")
+        console.error("Error fetching posts:", err);
+        setError("Failed to load posts. Please try again.");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchPosts()
-  }, [user])
+    fetchPosts();
+  }, [user]);
 
   if (loading) {
     return (
@@ -1573,12 +1643,29 @@ export default function FeedPage() {
         <Sidebar className="hidden md:flex" />
         <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
           <div className="flex justify-center items-center h-screen">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
+            <div className="w-full max-w-4xl px-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="w-full">
+                    <div className="flex items-center mb-2">
+                      <Skeleton className="h-10 w-10 rounded-full mr-2" />
+                      <div>
+                        <Skeleton className="h-4 w-24 mb-1" />
+                        <Skeleton className="h-3 w-16" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-[300px] w-full mb-2" />
+                    <Skeleton className="h-4 w-full mb-1" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </main>
         <MobileNavigation className="md:hidden" />
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -1586,16 +1673,19 @@ export default function FeedPage() {
       <div className="flex min-h-screen bg-white">
         <Sidebar className="hidden md:flex" />
         <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
-          <div className="flex flex-col justify-center items-center h-screen">
+          <div className="flex flex-col justify-center items-center h-screen p-4">
             <p className="text-red-500 mb-4">{error}</p>
-            <button onClick={() => window.location.reload()} className="px-4 py-2 bg-[#0095f6] text-white rounded-md">
+            <Button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-[#0095f6] text-white rounded-md"
+            >
               Try again
-            </button>
+            </Button>
           </div>
         </main>
         <MobileNavigation className="md:hidden" />
       </div>
-    )
+    );
   }
 
   if (posts.length === 0) {
@@ -1603,20 +1693,21 @@ export default function FeedPage() {
       <div className="flex min-h-screen bg-white">
         <Sidebar className="hidden md:flex" />
         <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
-          <div className="flex flex-col justify-center items-center h-screen">
+          <div className="flex flex-col justify-center items-center h-screen p-4">
             <h2 className="text-xl font-semibold mb-2">Welcome to your feed</h2>
-            <p className="text-[#737373] mb-4">Follow users to see their posts here</p>
-            <button
-              onClick={() => (window.location.href = "/explore")}
-              className="px-4 py-2 bg-[#0095f6] text-white rounded-md"
-            >
-              Explore users
-            </button>
+            <p className="text-[#737373] mb-4">
+              Follow users to see their posts here
+            </p>
+            <Link href="/explore">
+              <Button className="px-4 py-2 bg-[#0095f6] text-white rounded-md">
+                Explore users
+              </Button>
+            </Link>
           </div>
         </main>
         <MobileNavigation className="md:hidden" />
       </div>
-    )
+    );
   }
 
   return (
@@ -1624,9 +1715,9 @@ export default function FeedPage() {
       <Sidebar className="hidden md:flex" />
 
       <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
-        <div className="mx-auto max-w-5xl py-6 px-4">
-          {/* Двухколоночная сетка для постов на десктопе */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="mx-auto max-w-4xl py-6 px-4">
+          {/* Посты в ленте в две колонки */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {posts.map((post, index) => (
               <FeedPost key={`${post.id}-${index}`} post={post} />
             ))}
@@ -1637,95 +1728,25 @@ export default function FeedPage() {
             <div className="flex h-16 w-16 items-center justify-center rounded-full border border-[#dbdbdb]">
               <Check className="h-8 w-8 text-[#0095f6]" />
             </div>
-            <h3 className="mt-4 text-lg font-medium">You've seen all the updates</h3>
-            <p className="text-sm text-[#737373]">You have viewed all new publications</p>
+            <h3 className="mt-4 text-lg font-medium">
+              You've seen all the updates
+            </h3>
+            <p className="text-sm text-[#737373]">
+              You have viewed all new publications
+            </p>
           </div>
 
           {/* Футер */}
           <footer className="mt-8 text-center text-xs text-[#737373] pb-16 md:pb-4">
-            <p>© 2024 ICMGRAM</p>
+            <p>© 2024 RealtyGRAM</p>
           </footer>
         </div>
       </main>
 
-      {/* Мобильная навигация */}
-      <div className="fixed bottom-0 left-0 right-0 border-t border-[#dbdbdb] bg-white md:hidden z-10">
-        <div className="flex justify-around py-3">
-          <a href="/feed" className="flex flex-col items-center text-xs">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-              <path d="M11.47 3.84a.75.75 0 011.06 0l8.69 8.69a.75.75 0 101.06-1.06l-8.689-8.69a2.25 2.25 0 00-3.182 0l-8.69 8.69a.75.75 0 001.061 1.06l8.69-8.69z" />
-              <path d="M12 5.432l8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 01-.75-.75v-4.5a.75.75 0 00-.75-.75h-3a.75.75 0 00-.75.75V21a.75.75 0 01-.75.75H5.625a1.875 1.875 0 01-1.875-1.875v-6.198c.031-.028.062-.056.091-.086L12 5.43z" />
-            </svg>
-            <span>Home</span>
-          </a>
-          <a href="/search" className="flex flex-col items-center text-xs">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="w-6 h-6"
-            >
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <span>Search</span>
-          </a>
-          <a href="/explore" className="flex flex-col items-center text-xs">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="w-6 h-6"
-            >
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-            </svg>
-            <span>Explore</span>
-          </a>
-          <a href="/messages" className="flex flex-col items-center text-xs">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="w-6 h-6"
-            >
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-            <span>Messages</span>
-          </a>
-          <a href="/profile" className="flex flex-col items-center text-xs">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="w-6 h-6"
-            >
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
-            <span>Profile</span>
-          </a>
-        </div>
-      </div>
+      <MobileNavigation className="md:hidden" />
     </div>
-  )
+  );
 }
-
 
 ```
 
@@ -2014,6 +2035,13 @@ export default function GlobalError({
   }
   body {
     @apply bg-background text-foreground;
+  }
+
+  html,
+  body {
+    overflow-x: hidden;
+    position: relative;
+    width: 100%;
   }
 }
 
@@ -2401,6 +2429,7 @@ import { ChatConversation } from "@/components/chat/chat-conversation"
 import { useAuth } from "@/lib/auth-context"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { ErrorBoundary } from "@/components/error-boundary"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function MessagesPage() {
   const searchParams = useSearchParams()
@@ -2420,18 +2449,15 @@ export default function MessagesPage() {
   // Update selected user when URL param changes
   useEffect(() => {
     if (username) {
-      console.log("URL parameter username changed:", username)
       setSelectedUser(username)
     }
   }, [username])
 
   const handleSelectUser = (username: string) => {
-    console.log("Selected user in MessagesPage:", username)
     setSelectedUser(username)
 
     // For mobile view, we need to navigate to the specific chat page
     if (isMobileView) {
-      console.log("Navigating to chat page:", `/messages/${username}`)
       router.push(`/messages/${username}`)
     } else {
       // Update URL with query parameter for desktop view
@@ -2457,8 +2483,30 @@ export default function MessagesPage() {
       <div className="flex min-h-screen bg-white">
         <Sidebar className="hidden md:flex" />
         <div className="flex-1 md:ml-[240px]">
-          <div className="flex justify-center items-center h-screen">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
+          <div className="flex h-full">
+            <div className="w-[350px] h-full border-r border-[#dbdbdb] hidden md:block">
+              <div className="p-4 border-b border-[#dbdbdb] flex items-center justify-between">
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-8 w-8 rounded-full" />
+              </div>
+              <div className="p-3 border-b border-[#dbdbdb]">
+                <Skeleton className="h-9 w-full" />
+              </div>
+              <div className="p-4 space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center">
+                    <Skeleton className="h-12 w-12 rounded-full mr-3" />
+                    <div className="flex-1">
+                      <Skeleton className="h-4 w-24 mb-2" />
+                      <Skeleton className="h-3 w-32" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex-1 h-full flex items-center justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
+            </div>
           </div>
         </div>
         <MobileNavigation className="md:hidden" />
@@ -2475,12 +2523,12 @@ export default function MessagesPage() {
     <div className="flex min-h-screen bg-white">
       <Sidebar className="hidden md:flex" />
 
-      <div className="flex-1 md:ml-[240px] flex flex-col h-screen">
+      <div className="flex-1 md:ml-[240px] flex flex-col h-screen pb-16 md:pb-0">
         <div className="flex h-full">
           {/* On mobile, show either the chat list or the conversation */}
           {isMobileView ? (
             selectedUser ? (
-              <div className="w-full h-full">
+              <div className="w-full h-full pb-16 md:pb-0">
                 <ErrorBoundary
                   fallback={<div className="p-4">Не удалось загрузить переписку. Пожалуйста, попробуйте позже.</div>}
                 >
@@ -2488,7 +2536,7 @@ export default function MessagesPage() {
                 </ErrorBoundary>
               </div>
             ) : (
-              <div className="w-full h-full">
+              <div className="w-full h-full pb-16 md:pb-0">
                 <ErrorBoundary
                   fallback={
                     <div className="p-4">Не удалось загрузить список переписок. Пожалуйста, попробуйте позже.</div>
@@ -2519,8 +2567,8 @@ export default function MessagesPage() {
                   </ErrorBoundary>
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center p-4">
-                    <h3 className="text-lg font-semibold mb-2">Ваши сообщения</h3>
-                    <p className="text-[#737373] text-center">Выберите переписку из списка слева или начните новую</p>
+                    <h3 className="text-lg font-semibold mb-2">Your Messages</h3>
+                    <p className="text-[#737373] text-center">Select a conversation from the list or start a new one</p>
                   </div>
                 )}
               </div>
@@ -2672,7 +2720,7 @@ export default function ChatPage({ params }: { params: { username: string } }) {
     <div className="flex min-h-screen bg-white">
       <Sidebar className="hidden md:flex" />
 
-      <div className="flex-1 md:ml-[240px] flex flex-col h-screen">
+      <div className="flex-1 md:ml-[240px] flex flex-col h-screen pb-16 md:pb-0">
         <ChatConversation recipientUsername={username} isMobile={true} />
       </div>
 
@@ -2966,7 +3014,7 @@ export default function NotificationsPage() {
     <div className="flex min-h-screen bg-white">
       <Sidebar className="hidden md:flex" />
 
-      <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
+      <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px] pb-16 md:pb-0">
         <div className="mx-auto max-w-2xl py-8 px-4">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold">Notifications</h1>
@@ -3012,7 +3060,18 @@ export default function NotificationsPage() {
                     </Avatar>
 
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm">{notification.message}</p>
+                      <p className="text-sm">
+                        {notification.initiator && (
+                          <Link
+                            href={`/profile/${notification.initiator.username}`}
+                            className="font-semibold hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {notification.initiator.username}
+                          </Link>
+                        )}{" "}
+                        {notification.message.replace(/^[a-zA-Z0-9_]+ /, "")}
+                      </p>
                       <p className="text-xs text-[#737373] mt-1">
                         {new Date(notification.createdAt).toLocaleDateString()}
                       </p>
@@ -3509,117 +3568,128 @@ export default function EditPostPage({ params }: { params: { slug: string } }) {
 ## app\p\[slug]\page.tsx
 
 ```typescript
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect, useRef } from "react"
-import Image from "next/image"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Smile } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Sidebar } from "@/components/sidebar"
-import { MobileNavigation } from "@/components/mobile-navigation"
-import { PostOptionsMenu } from "@/components/post-options-menu"
-import { postApi, commentApi, profileApi } from "@/lib/api"
-import type { Post, Comment } from "@/lib/types"
-import { useAuth } from "@/lib/auth-context"
-import { formatImageUrl } from "@/lib/image-utils"
+import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  Heart,
+  MessageCircle,
+  Send,
+  Bookmark,
+  MoreHorizontal,
+  Smile,
+} from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Sidebar } from "@/components/sidebar";
+import { MobileNavigation } from "@/components/mobile-navigation";
+import { PostOptionsMenu } from "@/components/post-options-menu";
+import { postApi, commentApi, profileApi } from "@/lib/api";
+import type { Post, Comment } from "@/lib/types";
+import { useAuth } from "@/lib/auth-context";
+import { formatImageUrl } from "@/lib/image-utils";
 
 export default function PostPage({ params }: { params: { slug: string } }) {
-  const slug = params.slug
-  const [post, setPost] = useState<Post | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [liked, setLiked] = useState(false)
-  const [likesCount, setLikesCount] = useState(0)
-  const [comment, setComment] = useState("")
-  const [comments, setComments] = useState<Comment[]>([])
-  const [isFollowing, setIsFollowing] = useState(false)
-  const [showOptionsMenu, setShowOptionsMenu] = useState(false)
-  const commentInputRef = useRef<HTMLInputElement>(null)
-  const router = useRouter()
-  const { user } = useAuth()
+  const slug = params.slug;
+  const [post, setPost] = useState<Post | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [liked, setLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(0);
+  const [comment, setComment] = useState("");
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const commentInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchPost = async () => {
-      setLoading(true)
+      setLoading(true);
       try {
         // Получаем пост без токена, если пользователь не авторизован
-        const { post } = await postApi.get(slug, user?.token)
-        setPost(post)
-        setLikesCount(post.favoritesCount)
-        setLiked(post.favorited || false)
-        setIsFollowing(post.author.following || false)
-        setComments(post.comments || [])
+        const { post } = await postApi.get(slug, user?.token);
+        setPost(post);
+        setLikesCount(post.favoritesCount);
+        console.log(post);
+        setLiked(post.favorited || false);
+        setIsFollowing(post.author.following || false);
+        setComments(post.comments || []);
       } catch (err) {
-        console.error("Error fetching post:", err)
-        router.push("/feed")
+        console.error("Error fetching post:", err);
+        router.push("/feed");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchPost()
-  }, [slug, user, router])
+    fetchPost();
+  }, [slug, user, router]);
 
   const handleLike = async () => {
     if (!user?.token || !post) {
       // Если пользователь не авторизован, перенаправляем на страницу входа
-      router.push("/login")
-      return
+      router.push("/login");
+      return;
     }
 
     try {
       if (liked) {
-        await postApi.unfavorite(post.slug, user.token)
-        setLikesCount(likesCount - 1)
+        await postApi.unfavorite(post.slug, user.token);
+        setLikesCount(likesCount - 1);
       } else {
-        await postApi.favorite(post.slug, user.token)
-        setLikesCount(likesCount + 1)
+        await postApi.favorite(post.slug, user.token);
+        setLikesCount(likesCount + 1);
       }
-      setLiked(!liked)
+      setLiked(!liked);
     } catch (err) {
-      console.error("Error toggling like:", err)
+      console.error("Error toggling like:", err);
     }
-  }
+  };
 
   const handleFollow = async () => {
     if (!user?.token || !post) {
       // Если пользователь не авторизован, перенаправляем на страницу входа
-      router.push("/login")
-      return
+      router.push("/login");
+      return;
     }
 
     try {
       if (isFollowing) {
-        await profileApi.unfollow(post.author.username, user.token)
+        await profileApi.unfollow(post.author.username, user.token);
       } else {
-        await profileApi.follow(post.author.username, user.token)
+        await profileApi.follow(post.author.username, user.token);
       }
-      setIsFollowing(!isFollowing)
+      setIsFollowing(!isFollowing);
     } catch (err) {
-      console.error("Error toggling follow:", err)
+      console.error("Error toggling follow:", err);
     }
-  }
+  };
 
   const handleComment = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (!user?.token) {
       // Если пользователь не авторизован, перенаправляем на страницу входа
-      router.push("/login")
-      return
+      router.push("/login");
+      return;
     }
 
-    if (!comment.trim() || !post) return
+    if (!comment.trim() || !post) return;
 
     try {
-      const newComment = await commentApi.create(post.slug, { body: comment }, user.token)
-      setComments([...comments, newComment])
-      setComment("")
+      const newComment = await commentApi.create(
+        post.slug,
+        { body: comment },
+        user.token
+      );
+      setComments([...comments, newComment]);
+      setComment("");
 
       // Обновляем пост с новым комментарием
       if (post) {
@@ -3627,39 +3697,39 @@ export default function PostPage({ params }: { params: { slug: string } }) {
         const updatedPost = {
           ...post,
           comments: [...(post.comments || []), newComment],
-        }
-        setPost(updatedPost)
+        };
+        setPost(updatedPost);
       }
     } catch (err) {
-      console.error("Error adding comment:", err)
+      console.error("Error adding comment:", err);
     }
-  }
+  };
 
   const handleCommentFocus = () => {
     if (!user) {
       // Если пользователь не авторизован, перенаправляем на страницу входа
-      router.push("/login")
-      return
+      router.push("/login");
+      return;
     }
-    commentInputRef.current?.focus()
-  }
+    commentInputRef.current?.focus();
+  };
 
   const formatNumber = (num: number) => {
-    return new Intl.NumberFormat("en-US").format(num)
-  }
+    return new Intl.NumberFormat("en-US").format(num);
+  };
 
   if (loading) {
     return (
       <div className="flex min-h-screen bg-white">
         <Sidebar className="hidden md:flex" />
         <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
-          <div className="flex justify-center items-center h-screen">
+          <div className="flex justify-center items-center h-screen pb-16 md:pb-0">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
           </div>
         </main>
         <MobileNavigation className="md:hidden" />
       </div>
-    )
+    );
   }
 
   if (!post) {
@@ -3667,15 +3737,17 @@ export default function PostPage({ params }: { params: { slug: string } }) {
       <div className="flex min-h-screen bg-white">
         <Sidebar className="hidden md:flex" />
         <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
-          <div className="flex flex-col justify-center items-center h-screen">
+          <div className="flex flex-col justify-center items-center h-screen pb-16 md:pb-0">
             <h1 className="text-2xl font-bold mb-4">Post Not Found</h1>
-            <p className="text-[#737373] mb-6">The post you are looking for does not exist.</p>
+            <p className="text-[#737373] mb-6">
+              The post you are looking for does not exist.
+            </p>
             <Button onClick={() => router.push("/feed")}>Go to Feed</Button>
           </div>
         </main>
         <MobileNavigation className="md:hidden" />
       </div>
-    )
+    );
   }
 
   return (
@@ -3683,16 +3755,14 @@ export default function PostPage({ params }: { params: { slug: string } }) {
       <Sidebar className="hidden md:flex" />
 
       <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
-        <div className="mx-auto max-w-[935px]">
+        <div className="mx-auto max-w-[935px] pb-16 md:pb-0">
           <div className="flex flex-col md:flex-row border border-[#dbdbdb] rounded-sm overflow-hidden">
             {/* Изображение поста */}
             <div className="relative aspect-square w-full md:w-[60%] bg-black">
-              <Image
+              <img
                 src={formatImageUrl(post.img) || "/placeholder.svg"}
                 alt={post.title}
-                fill
-                className="object-contain"
-                priority
+                className="w-full h-full object-contain"
               />
             </div>
 
@@ -3701,13 +3771,23 @@ export default function PostPage({ params }: { params: { slug: string } }) {
               {/* Шапка поста */}
               <div className="flex items-center justify-between p-3 border-b border-[#dbdbdb]">
                 <div className="flex items-center">
-                  <Link href={`/profile/${post.author.username}`} className="flex items-center">
+                  <Link
+                    href={`/profile/${post.author.username}`}
+                    className="flex items-center"
+                  >
                     <Avatar className="h-8 w-8 mr-2">
-                      <AvatarImage src={formatImageUrl(post.author.img)} alt={post.author.username} />
-                      <AvatarFallback>{post.author.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+                      <AvatarImage
+                        src={formatImageUrl(post.author.img)}
+                        alt={post.author.username}
+                      />
+                      <AvatarFallback>
+                        {post.author.username.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
                     </Avatar>
                     <div className="flex items-center">
-                      <span className="font-semibold text-sm">{post.author.username}</span>
+                      <span className="font-semibold text-sm">
+                        {post.author.username}
+                      </span>
                     </div>
                   </Link>
                 </div>
@@ -3722,7 +3802,12 @@ export default function PostPage({ params }: { params: { slug: string } }) {
                       {isFollowing ? "Following" : "Follow"}
                     </Button>
                   )}
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowOptionsMenu(true)}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setShowOptionsMenu(true)}
+                  >
                     <MoreHorizontal className="h-5 w-5" />
                   </Button>
                 </div>
@@ -3733,15 +3818,26 @@ export default function PostPage({ params }: { params: { slug: string } }) {
                 {/* Подпись автора */}
                 <div className="flex items-start p-3">
                   <Avatar className="h-8 w-8 mr-3 mt-1">
-                    <AvatarImage src={formatImageUrl(post.author.img)} alt={post.author.username} />
-                    <AvatarFallback>{post.author.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+                    <AvatarImage
+                      src={formatImageUrl(post.author.img)}
+                      alt={post.author.username}
+                    />
+                    <AvatarFallback>
+                      {post.author.username.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
                   </Avatar>
                   <div>
                     <div>
-                      <span className="font-semibold text-sm">{post.author.username}</span>{" "}
-                      <span className="text-sm whitespace-pre-line">{post.content}</span>
+                      <span className="font-semibold text-sm">
+                        {post.author.username}
+                      </span>{" "}
+                      <span className="text-sm whitespace-pre-line">
+                        {post.content}
+                      </span>
                     </div>
-                    <p className="text-xs text-[#737373] mt-1">{new Date(post.createdAt).toLocaleDateString()}</p>
+                    <p className="text-xs text-[#737373] mt-1">
+                      {new Date(post.createdAt).toLocaleDateString()}
+                    </p>
                   </div>
                 </div>
 
@@ -3751,23 +3847,39 @@ export default function PostPage({ params }: { params: { slug: string } }) {
                     comments.map((comment) => (
                       <div key={comment.id} className="flex items-start">
                         <Avatar className="h-8 w-8 mr-3 mt-1">
-                          <AvatarImage src={formatImageUrl(comment.author.img)} alt={comment.author.username} />
-                          <AvatarFallback>{comment.author.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+                          <AvatarImage
+                            src={formatImageUrl(comment.author.img)}
+                            alt={comment.author.username}
+                          />
+                          <AvatarFallback>
+                            {comment.author.username.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
                           <div className="flex items-center">
-                            <span className="font-semibold text-sm mr-1">{comment.author.username}</span>
+                            <Link
+                              href={`/profile/${encodeURIComponent(
+                                comment.author.username
+                              )}`}
+                              className="font-semibold text-sm mr-1 hover:underline"
+                            >
+                              {comment.author.username}
+                            </Link>
                             <span className="text-sm">{comment.body}</span>
                           </div>
                           <div className="flex items-center mt-1 space-x-3 text-xs text-[#737373]">
-                            <span>{new Date(comment.createdAt).toLocaleDateString()}</span>
-                            {user && <button className="font-semibold">Reply</button>}
+                            <span>
+                              {new Date(comment.createdAt).toLocaleDateString()}
+                            </span>
+                            {/* {user && <button className="font-semibold">Reply</button>} */}
                           </div>
                         </div>
                       </div>
                     ))
                   ) : (
-                    <div className="p-3 text-center text-[#737373]">No comments yet. Be the first to comment!</div>
+                    <div className="p-3 text-center text-[#737373]">
+                      No comments yet. Be the first to comment!
+                    </div>
                   )}
                 </div>
               </div>
@@ -3777,7 +3889,11 @@ export default function PostPage({ params }: { params: { slug: string } }) {
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-4">
                     <button onClick={handleLike}>
-                      <Heart className={`h-6 w-6 ${liked ? "fill-red-500 text-red-500" : ""}`} />
+                      <Heart
+                        className={`h-6 w-6 ${
+                          liked ? "fill-red-500 text-red-500" : ""
+                        }`}
+                      />
                     </button>
                     <button onClick={handleCommentFocus}>
                       <MessageCircle className="h-6 w-6" />
@@ -3793,7 +3909,9 @@ export default function PostPage({ params }: { params: { slug: string } }) {
 
                 {/* Лайки */}
                 <div className="mb-1">
-                  <p className="font-semibold text-sm">{formatNumber(likesCount)} likes</p>
+                  <p className="font-semibold text-sm">
+                    {formatNumber(likesCount)} likes
+                  </p>
                 </div>
 
                 {/* Дата */}
@@ -3804,7 +3922,10 @@ export default function PostPage({ params }: { params: { slug: string } }) {
                 </div>
 
                 {/* Форма комментария */}
-                <form onSubmit={handleComment} className="flex items-center border-t border-[#dbdbdb] pt-3">
+                <form
+                  onSubmit={handleComment}
+                  className="flex items-center border-t border-[#dbdbdb] pt-3"
+                >
                   <button type="button" className="mr-2">
                     <Smile className="h-6 w-6 text-[#262626]" />
                   </button>
@@ -3822,7 +3943,9 @@ export default function PostPage({ params }: { params: { slug: string } }) {
                     variant="ghost"
                     size="sm"
                     className={`text-[#0095f6] font-semibold text-sm ${
-                      !comment.trim() || !user ? "opacity-50 cursor-not-allowed" : ""
+                      !comment.trim() || !user
+                        ? "opacity-50 cursor-not-allowed"
+                        : ""
                     }`}
                     disabled={!comment.trim() || !user}
                   >
@@ -3845,9 +3968,8 @@ export default function PostPage({ params }: { params: { slug: string } }) {
 
       <MobileNavigation className="md:hidden" />
     </div>
-  )
+  );
 }
-
 
 ```
 
@@ -4213,7 +4335,6 @@ import Link from "next/link"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-// Добавим импорт для Heart иконки
 import { Grid, MessageCircle, Settings, Heart } from "lucide-react"
 import { Sidebar } from "@/components/sidebar"
 import { MobileNavigation } from "@/components/mobile-navigation"
@@ -4221,11 +4342,13 @@ import { profileApi, postApi } from "@/lib/api"
 import type { Profile, Post } from "@/lib/types"
 import { useAuth } from "@/lib/auth-context"
 import { formatImageUrl } from "@/lib/image-utils"
-// Импортируем компонент PostGrid
 import { PostGrid } from "@/components/post-grid"
 import { useRouter } from "next/navigation"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function ProfilePage({ params }: { params: { username: string } }) {
+  // Проверим, существует ли этот файл и как он реализован
+  // Если файл существует, то путь `/profile/[username]` правильный
   const { username } = params
   const [profile, setProfile] = useState<Profile | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
@@ -4313,8 +4436,31 @@ export default function ProfilePage({ params }: { params: { username: string } }
       <div className="flex min-h-screen bg-white">
         <Sidebar className="hidden md:flex" />
         <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
-          <div className="flex justify-center items-center h-screen">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
+          <div className="mx-auto max-w-4xl py-4 md:py-8 px-4 pb-16 md:pb-4">
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-8 mb-6 md:mb-8">
+              <Skeleton className="h-20 w-20 md:h-36 md:w-36 rounded-full" />
+              <div className="flex-1 w-full">
+                <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mb-4">
+                  <Skeleton className="h-6 w-32" />
+                  <div className="flex items-center gap-2 mt-2 md:mt-0">
+                    <Skeleton className="h-9 w-24" />
+                    <Skeleton className="h-9 w-24" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 mb-4">
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+                <Skeleton className="h-4 w-full max-w-md" />
+              </div>
+            </div>
+            <Skeleton className="h-10 w-full mb-6" />
+            <div className="grid grid-cols-3 gap-1">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton key={i} className="aspect-square w-full" />
+              ))}
+            </div>
           </div>
         </main>
         <MobileNavigation className="md:hidden" />
@@ -4327,9 +4473,9 @@ export default function ProfilePage({ params }: { params: { username: string } }
       <div className="flex min-h-screen bg-white">
         <Sidebar className="hidden md:flex" />
         <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
-          <div className="flex justify-center items-center h-screen">
+          <div className="flex justify-center items-center h-screen p-4 pb-16 md:pb-4">
             <div className="text-center">
-              <h1 className="text-2xl font-bold mb-4">User not found</h1>
+              <h1 className="text-xl md:text-2xl font-bold mb-4">User not found</h1>
               <p className="text-[#737373] mb-6">The user you are looking for does not exist.</p>
               <Link href="/feed">
                 <Button>Go to Feed</Button>
@@ -4347,35 +4493,40 @@ export default function ProfilePage({ params }: { params: { username: string } }
       <Sidebar className="hidden md:flex" />
 
       <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
-        <div className="mx-auto max-w-4xl py-8 px-4">
-          <div className="flex flex-col md:flex-row items-start md:items-center gap-8 mb-8">
-            <Avatar className="h-24 w-24 md:h-36 md:w-36">
-              {/* Update the Avatar image in the profile section */}
+        <div className="mx-auto max-w-4xl py-4 md:py-8 px-4 pb-16 md:pb-4">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-8 mb-6 md:mb-8">
+            <Avatar className="h-20 w-20 md:h-36 md:w-36">
               <AvatarImage src={formatImageUrl(profile.img)} alt={profile.username} />
               <AvatarFallback>{profile.username.slice(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
 
             <div className="flex-1">
-              <div className="flex flex-col md:flex-row md:items-center gap-4 mb-4">
-                <h1 className="text-2xl font-bold">{profile.username}</h1>
+              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mb-4">
+                <h1 className="text-xl md:text-2xl font-bold">{profile.username}</h1>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 mt-2 md:mt-0">
                   {user && user.id !== profile.id && (
-                    <Button onClick={handleFollow} variant={isFollowing ? "outline" : "default"}>
+                    <Button
+                      onClick={handleFollow}
+                      variant={isFollowing ? "outline" : "default"}
+                      className="w-full sm:w-auto"
+                    >
                       {isFollowing ? "Following" : "Follow"}
                     </Button>
                   )}
                   {user && user.id !== profile.id && (
-                    <Link href={`/messages/${profile.username}`}>
-                      <Button variant="outline">
+                    <Link href={`/messages/${profile.username}`} className="w-full sm:w-auto">
+                      <Button variant="outline" className="w-full">
                         <MessageCircle className="h-4 w-4 mr-2" />
                         Message
                       </Button>
                     </Link>
                   )}
                   {user && user.id === profile.id && (
-                    <Link href="/profile/edit">
-                      <Button variant="outline">Edit Profile</Button>
+                    <Link href="/profile/edit" className="w-full sm:w-auto">
+                      <Button variant="outline" className="w-full">
+                        Edit Profile
+                      </Button>
                     </Link>
                   )}
                   {user && user.id === profile.id && (
@@ -4386,7 +4537,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
                 </div>
               </div>
 
-              <div className="flex items-center gap-6 mb-4">
+              <div className="flex items-center gap-4 md:gap-6 mb-4 text-sm md:text-base">
                 <div>
                   <strong>{posts.length}</strong> posts
                 </div>
@@ -4400,14 +4551,13 @@ export default function ProfilePage({ params }: { params: { username: string } }
 
               <div>
                 <h2 className="font-medium">{profile.username}</h2>
-                <p className="mt-1">{profile.bio || "No bio yet"}</p>
+                <p className="mt-1 text-sm md:text-base">{profile.bio || "No bio yet"}</p>
               </div>
             </div>
           </div>
 
           <Tabs defaultValue="posts">
-            {/* Обновим иконку для вкладки "saved" */}
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
               <TabsTrigger value="posts">
                 <Grid className="h-4 w-4 mr-2" />
                 Posts
@@ -4417,8 +4567,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
                 Saved
               </TabsTrigger>
             </TabsList>
-            {/* Заменим содержимое TabsContent для posts на использование PostGrid */}
-            <TabsContent value="posts" className="mt-6">
+            <TabsContent value="posts" className="mt-2 md:mt-6">
               <PostGrid
                 posts={posts}
                 loading={loading}
@@ -4426,9 +4575,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
                 emptyIcon={<Grid className="h-12 w-12 mx-auto mb-4 text-gray-300" />}
               />
             </TabsContent>
-            {/* Обновим TabsContent для вкладки "saved" */}
-            {/* Заменим содержимое TabsContent для saved на использование PostGrid */}
-            <TabsContent value="saved" className="mt-6">
+            <TabsContent value="saved" className="mt-2 md:mt-6">
               {user && profile && user.id === profile.id ? (
                 <PostGrid
                   posts={likedPosts}
@@ -4437,7 +4584,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
                   emptyIcon={<Heart className="h-12 w-12 mx-auto mb-4 text-gray-300" />}
                 />
               ) : (
-                <div className="text-center py-12">
+                <div className="text-center py-8 md:py-12">
                   <p className="text-muted-foreground">This section is only visible to the profile owner</p>
                 </div>
               )}
@@ -4688,7 +4835,6 @@ export default function Loading() {
 "use client"
 
 import { useState, useEffect } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { SearchIcon, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
@@ -4696,108 +4842,20 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Sidebar } from "@/components/sidebar"
 import { MobileNavigation } from "@/components/mobile-navigation"
 import { formatImageUrl } from "@/lib/image-utils"
-
-const MOCK_USERS = [
-  {
-    id: "101",
-    username: "sashaa",
-    fullName: "Sasha",
-    avatar: "/placeholder.svg?height=32&width=32",
-    isVerified: true,
-  },
-  {
-    id: "102",
-    username: "nature_lover",
-    fullName: "Nature Photography",
-    avatar: "/placeholder.svg?height=32&width=32",
-    isVerified: false,
-  },
-  {
-    id: "103",
-    username: "traveler",
-    fullName: "World Traveler",
-    avatar: "/placeholder.svg?height=32&width=32",
-    isVerified: false,
-  },
-  {
-    id: "104",
-    username: "photographer",
-    fullName: "Professional Photographer",
-    avatar: "/placeholder.svg?height=32&width=32",
-    isVerified: true,
-  },
-  {
-    id: "105",
-    username: "autumn_fan",
-    fullName: "Autumn Colors",
-    avatar: "/placeholder.svg?height=32&width=32",
-    isVerified: false,
-  },
-]
-
-const MOCK_POPULAR_POSTS = [
-  {
-    id: "1",
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Final_project.png-SJh5ACjfbUavtx6G4ZzTCvX4o2EZLl.jpeg",
-    likes: 1024,
-  },
-  {
-    id: "2",
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Final_project.png-SJh5ACjfbUavtx6G4ZzTCvX4o2EZLl.jpeg",
-    likes: 876,
-  },
-  {
-    id: "3",
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Final_project.png-SJh5ACjfbUavtx6G4ZzTCvX4o2EZLl.jpeg",
-    likes: 743,
-  },
-  {
-    id: "4",
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Final_project.png-SJh5ACjfbUavtx6G4ZzTCvX4o2EZLl.jpeg",
-    likes: 692,
-  },
-  {
-    id: "5",
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Final_project.png-SJh5ACjfbUavtx6G4ZzTCvX4o2EZLl.jpeg",
-    likes: 581,
-  },
-  {
-    id: "6",
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Final_project.png-SJh5ACjfbUavtx6G4ZzTCvX4o2EZLl.jpeg",
-    likes: 429,
-  },
-  {
-    id: "7",
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Final_project.png-SJh5ACjfbUavtx6G4ZzTCvX4o2EZLl.jpeg",
-    likes: 387,
-  },
-  {
-    id: "8",
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Final_project.png-SJh5ACjfbUavtx6G4ZzTCvX4o2EZLl.jpeg",
-    likes: 352,
-  },
-  {
-    id: "9",
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Final_project.png-SJh5ACjfbUavtx6G4ZzTCvX4o2EZLl.jpeg",
-    likes: 298,
-  },
-]
+import { useAuth } from "@/lib/auth-context"
+import { userApi, postApi } from "@/lib/api"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState([])
   const [recentSearches, setRecentSearches] = useState([])
   const [loading, setLoading] = useState(false)
+  const [popularPosts, setPopularPosts] = useState([])
+  const [loadingPosts, setLoadingPosts] = useState(true)
+  const { user } = useAuth()
 
+  // Загрузка недавних поисков из localStorage при инициализации
   useEffect(() => {
     const savedSearches = localStorage.getItem("recentSearches")
     if (savedSearches) {
@@ -4807,26 +4865,49 @@ export default function SearchPage() {
         console.error("Error parsing recent searches:", e)
         setRecentSearches([])
       }
-    } else {
-      const defaultRecent = [MOCK_USERS[0]]
-      setRecentSearches(defaultRecent)
-      localStorage.setItem("recentSearches", JSON.stringify(defaultRecent))
     }
   }, [])
 
+  // Загрузка популярных постов
+  useEffect(() => {
+    const fetchPopularPosts = async () => {
+      setLoadingPosts(true)
+      try {
+        const { posts } = await postApi.list({ limit: 9, sort: "popular" }, user?.token)
+        setPopularPosts(posts)
+      } catch (err) {
+        console.error("Error fetching popular posts:", err)
+        setPopularPosts([])
+      } finally {
+        setLoadingPosts(false)
+      }
+    }
+
+    fetchPopularPosts()
+  }, [user])
+
+  // Поиск пользователей при вводе запроса
   useEffect(() => {
     if (searchQuery.trim()) {
       setLoading(true)
 
-      setTimeout(() => {
-        const results = MOCK_USERS.filter(
-          (user) =>
-            user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            user.fullName.toLowerCase().includes(searchQuery.toLowerCase()),
-        )
-        setSearchResults(results)
-        setLoading(false)
+      const searchUsers = async () => {
+        try {
+          const { users } = await userApi.search(searchQuery)
+          setSearchResults(users)
+        } catch (err) {
+          console.error("Error searching users:", err)
+          setSearchResults([])
+        } finally {
+          setLoading(false)
+        }
+      }
+
+      const debounce = setTimeout(() => {
+        searchUsers()
       }, 300)
+
+      return () => clearTimeout(debounce)
     } else {
       setSearchResults([])
     }
@@ -4836,7 +4917,7 @@ export default function SearchPage() {
     const isExisting = recentSearches.some((item) => item.id === user.id)
 
     if (!isExisting) {
-      const updatedSearches = [user, ...recentSearches].slice(0, 5)
+      const updatedSearches = [user, ...recentSearches].slice(0, 5) // Ограничиваем до 5 последних поисков
       setRecentSearches(updatedSearches)
       localStorage.setItem("recentSearches", JSON.stringify(updatedSearches))
     }
@@ -4857,9 +4938,10 @@ export default function SearchPage() {
     <div className="flex min-h-screen bg-white">
       <Sidebar className="hidden md:flex" />
 
-      <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
-        <div className="mx-auto max-w-4xl py-8 px-4">
-          <div className="relative mb-6">
+      <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px] w-full pb-16 md:pb-0">
+        <div className="mx-auto max-w-4xl py-4 md:py-8 px-4">
+          {/* Поисковая строка */}
+          <div className="relative mb-4 md:mb-6">
             <div className="relative">
               <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#737373]" />
               <Input
@@ -4880,11 +4962,20 @@ export default function SearchPage() {
             </div>
           </div>
 
+          {/* Результаты поиска или недавние поиски */}
           {searchQuery ? (
             <div className="bg-white rounded-lg shadow-sm border border-[#dbdbdb]">
               {loading ? (
-                <div className="flex justify-center items-center h-40">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-black"></div>
+                <div className="p-4 space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center space-x-4">
+                      <Skeleton className="h-12 w-12 rounded-full" />
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-3 w-32" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="divide-y divide-[#dbdbdb]">
@@ -4897,13 +4988,13 @@ export default function SearchPage() {
                         className="flex items-center p-4 hover:bg-gray-50"
                       >
                         <Avatar className="h-12 w-12 mr-3">
-                          <AvatarImage src={formatImageUrl(user.avatar)} alt={user.username} />
+                          <AvatarImage src={formatImageUrl(user.img)} alt={user.username} />
                           <AvatarFallback>{user.username.slice(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
 
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold">{user.username}</p>
-                          <p className="text-sm text-[#737373]">{user.fullName}</p>
+                          <p className="text-sm text-[#737373]">{user.bio || user.fullName}</p>
                         </div>
                       </Link>
                     ))
@@ -4917,8 +5008,9 @@ export default function SearchPage() {
             </div>
           ) : (
             <>
+              {/* Недавние поиски */}
               {recentSearches.length > 0 && (
-                <div className="bg-white rounded-lg shadow-sm border border-[#dbdbdb] mb-8">
+                <div className="bg-white rounded-lg shadow-sm border border-[#dbdbdb] mb-6">
                   <div className="p-4 border-b border-[#dbdbdb] flex justify-between items-center">
                     <h2 className="font-semibold">Recent</h2>
                   </div>
@@ -4926,15 +5018,15 @@ export default function SearchPage() {
                   <div className="divide-y divide-[#dbdbdb]">
                     {recentSearches.map((user) => (
                       <div key={user.id} className="flex items-center p-4 hover:bg-gray-50">
-                        <Link href={`/profile/${user.id}`} className="flex items-center flex-1">
+                        <Link href={`/profile/${user.username}`} className="flex items-center flex-1">
                           <Avatar className="h-12 w-12 mr-3">
-                            <AvatarImage src={user.avatar} alt={user.username} />
+                            <AvatarImage src={formatImageUrl(user.img)} alt={user.username} />
                             <AvatarFallback>{user.username.slice(0, 2).toUpperCase()}</AvatarFallback>
                           </Avatar>
 
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold">{user.username}</p>
-                            <p className="text-sm text-[#737373]">{user.fullName}</p>
+                            <p className="text-sm text-[#737373]">{user.bio || user.fullName}</p>
                           </div>
                         </Link>
 
@@ -4950,20 +5042,28 @@ export default function SearchPage() {
                 </div>
               )}
 
-              <div className="mt-8">
+              {/* Популярные посты */}
+              <div className="mt-4 md:mt-8">
                 <h2 className="font-semibold text-lg mb-4">Explore</h2>
-                <div className="grid grid-cols-3 gap-1">
-                  {MOCK_POPULAR_POSTS.map((post) => (
-                    <Link key={post.id} href={`/p/${post.id}`} className="relative aspect-square">
-                      <Image
-                        src={formatImageUrl(post.image) || "/placeholder.svg"}
-                        alt=""
-                        fill
-                        className="object-cover"
-                      />
-                    </Link>
-                  ))}
-                </div>
+                {loadingPosts ? (
+                  <div className="grid grid-cols-3 gap-1">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
+                      <Skeleton key={i} className="aspect-square w-full" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-1">
+                    {popularPosts.map((post) => (
+                      <Link key={post.id} href={`/p/${post.slug}`} className="relative aspect-square">
+                        <img
+                          src={formatImageUrl(post.img) || "/placeholder.svg"}
+                          alt={post.title || ""}
+                          className="object-cover w-full h-full"
+                        />
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -5500,6 +5600,7 @@ import type { Profile, ChatMessage } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { toast } from "@/hooks/use-toast"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface ChatConversationProps {
   recipientUsername: string
@@ -5514,7 +5615,6 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [connected, setConnected] = useState(false)
-  const [useRestFallback, setUseRestFallback] = useState(true)
   const [fetchingMessages, setFetchingMessages] = useState(false)
   const [accessDenied, setAccessDenied] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -5571,7 +5671,7 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
           // Пробуем получить ID пользователя через поиск
           try {
             const response = await fetch(
-              `https://api.panchenko.work/users/search?username=${encodeURIComponent(recipientUsername)}`,
+              `${process.env.NEXT_PUBLIC_API_URL}/users/search?username=${encodeURIComponent(recipientUsername)}`,
               {
                 headers: {
                   Authorization: `Bearer ${user.token}`,
@@ -5785,7 +5885,6 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
             const uniqueMessages = removeDuplicates(normalizedMessages)
             setMessages(uniqueMessages)
             messagesRef.current = uniqueMessages
-          } else {
           }
         }
       } catch (error) {
@@ -5805,13 +5904,9 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
     // Initialize chat immediately
     initializeChat()
 
-    // Clean up every 5 minutes to prevent memory leaks
-    const cleanupInterval = setInterval(() => {}, 5 * 60 * 1000)
-
     return () => {
       mounted = false
       chatService.disconnectFromSocket()
-      clearInterval(cleanupInterval)
     }
   }, [user, recipient, roomId, accessDenied])
 
@@ -5843,9 +5938,9 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
     return uniqueMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
   }, [])
 
-  // Scroll to bottom on initial load
+  // Scroll to bottom on initial load and when new messages arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView()
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
   const handleSendMessage = (e: React.FormEvent) => {
@@ -5945,12 +6040,6 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
     }
   }
 
-  const handleViewProfile = () => {
-    if (recipient) {
-      router.push(`/profile/${recipient.username}`)
-    }
-  }
-
   // Принудительное обновление сообщений из API
   const refreshMessages = async () => {
     if (!roomId) return
@@ -5997,19 +6086,6 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
     }
   }
 
-  // Toggle REST API fallback
-  const toggleRestFallback = () => {
-    const newValue = !useRestFallback
-    setUseRestFallback(newValue)
-
-    toast({
-      title: newValue ? "REST API enabled" : "REST API disabled",
-      description: newValue
-        ? "Messages will be sent via REST API if socket is unavailable"
-        : "Messages will only be sent via socket",
-    })
-  }
-
   // Очистка истории сообщений
   const clearChatHistory = () => {
     chatService.clearMessagesToLocalStorage(roomId)
@@ -6023,8 +6099,39 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
   // Show loading state
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-black"></div>
+      <div className="h-full flex flex-col">
+        <div className="p-4 border-b border-[#dbdbdb] flex items-center justify-between">
+          {isMobile && (
+            <Button variant="ghost" size="icon" className="mr-2" disabled>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          )}
+          <div className="flex items-center">
+            <Skeleton className="h-10 w-10 rounded-full mr-3" />
+            <div>
+              <Skeleton className="h-4 w-24 mb-1" />
+              <Skeleton className="h-3 w-32" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 p-4 space-y-4">
+          <div className="flex justify-start">
+            <Skeleton className="h-8 w-8 rounded-full mr-2" />
+            <Skeleton className="h-12 w-48 rounded-2xl" />
+          </div>
+          <div className="flex justify-end">
+            <Skeleton className="h-12 w-48 rounded-2xl" />
+          </div>
+          <div className="flex justify-start">
+            <Skeleton className="h-8 w-8 rounded-full mr-2" />
+            <Skeleton className="h-12 w-36 rounded-2xl" />
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-[#dbdbdb]">
+          <Skeleton className="h-10 w-full rounded-full" />
+        </div>
       </div>
     )
   }
@@ -6054,7 +6161,7 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col pb-16 md:pb-0">
       {/* Header */}
       <div className="p-4 border-b border-[#dbdbdb] flex items-center justify-between">
         <div className="flex items-center">
@@ -6115,7 +6222,7 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 pb-2 space-y-4">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-4">
             <Avatar className="h-16 w-16 mb-4">
@@ -6133,12 +6240,7 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
         ) : (
           messages.map((message, index) => {
             // Определяем, является ли текущий пользователь отправителем сообщения
-            // Используем явное сравнение ID и сохраняем результат в переменную
             const isCurrentUserSender = user && Number(message.senderId) === Number(user.id)
-
-            // Добавим логирование для отладки
-            if (index === 0) {
-            }
 
             return (
               <div
@@ -6753,12 +6855,12 @@ export function ChatList({ selectedUserId, onSelectUser }: ChatListProps) {
                   <AvatarImage src={formatImageUrl(chatItem.profile.img)} alt={chatItem.profile.username} />
                   <AvatarFallback>{chatItem.profile.username.slice(0, 2).toUpperCase()}</AvatarFallback>
 
-                  {/* Unread indicator */}
+                  {/* Unread indicator
                   {chatItem.unreadCount > 0 && (
                     <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
                       {chatItem.unreadCount}
                     </div>
-                  )}
+                  )} */}
                 </Avatar>
 
                 <div className="flex-1 min-w-0">
@@ -6847,7 +6949,6 @@ export class ErrorBoundary extends Component<Props, State> {
 "use client"
 
 import { useState, useEffect } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { Heart, MessageCircle, Send, Bookmark } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -6856,6 +6957,7 @@ import type { Post as PostType } from "@/lib/types"
 import { postApi } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { formatImageUrl } from "@/lib/image-utils"
+import { useRouter } from "next/navigation"
 
 interface FeedPostProps {
   post: PostType
@@ -6863,9 +6965,11 @@ interface FeedPostProps {
 
 export function FeedPost({ post }: FeedPostProps) {
   const [liked, setLiked] = useState(post.favorited === true)
+  console.log(post);
   const [likesCount, setLikesCount] = useState(post.favoritesCount)
   const [commentsCount, setCommentsCount] = useState(post.comments?.length || 0)
   const { user } = useAuth()
+  const router = useRouter()
 
   useEffect(() => {
     const fetchPostStats = async () => {
@@ -6888,7 +6992,10 @@ export function FeedPost({ post }: FeedPostProps) {
   }, [post.slug, post.favoritesCount, post.comments, post.favorited, user])
 
   const handleLike = async () => {
-    if (!user?.token) return
+    if (!user?.token) {
+      router.push(`/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`)
+      return
+    }
 
     try {
       setLiked(!liked)
@@ -6915,12 +7022,20 @@ export function FeedPost({ post }: FeedPostProps) {
     const date = new Date(dateString)
     const now = new Date()
     const diffTime = Math.abs(now.getTime() - date.getTime())
+    const diffMinutes = Math.floor(diffTime / (1000 * 60))
+    const diffHours = Math.floor(diffTime / (1000 * 60 * 60))
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
 
-    if (diffDays < 7) {
+    if (diffMinutes < 1) {
+      return "just now"
+    } else if (diffMinutes < 60) {
+      return `${diffMinutes}m`
+    } else if (diffHours < 24) {
+      return `${diffHours}h`
+    } else if (diffDays < 7) {
       return `${diffDays}d`
     } else if (diffDays < 30) {
-      return `${Math.floor(diffDays / 7)} wek`
+      return `${Math.floor(diffDays / 7)}w`
     } else if (diffDays < 365) {
       return `${Math.floor(diffDays / 30)}mo`
     } else {
@@ -6937,11 +7052,13 @@ export function FeedPost({ post }: FeedPostProps) {
     return new Intl.NumberFormat().format(num)
   }
 
+  const imageUrl = formatImageUrl(post.img) || "/placeholder.svg"
+
   return (
     <article className="mb-6 border border-[#dbdbdb] rounded-sm bg-white">
       <div className="flex items-center justify-between p-3">
         <div className="flex items-center">
-          <Link href={`/profile/${post.author.username}`} className="flex items-center">
+          <Link href={`/profile/${encodeURIComponent(post.author.username)}`} className="flex items-center">
             <Avatar className="h-8 w-8 mr-2">
               <AvatarImage src={formatImageUrl(post.author.img)} alt={post.author.username} />
               <AvatarFallback>{post.author.username.slice(0, 2).toUpperCase()} </AvatarFallback>
@@ -6963,12 +7080,10 @@ export function FeedPost({ post }: FeedPostProps) {
 
       <div className="relative aspect-square w-full">
         <Link href={`/p/${post.slug}`}>
-          <Image
-            src={formatImageUrl(post.img) || "/placeholder.svg"}
+          <img
+            src={imageUrl || "/placeholder.svg"}
             alt={post.title || "Post image"}
-            fill
-            className="object-cover"
-            priority
+            className="object-cover w-full h-full"
           />
         </Link>
       </div>
@@ -6996,7 +7111,7 @@ export function FeedPost({ post }: FeedPostProps) {
 
       <div className="px-3 pb-1">
         <p className="text-sm">
-          <Link href={`/profile/${post.author.username}`} className="font-semibold mr-1">
+          <Link href={`/profile/${encodeURIComponent(post.author.username)}`} className="font-semibold mr-1">
             {post.author.username}
           </Link>
           {post.content}
@@ -7017,12 +7132,12 @@ export function FeedPost({ post }: FeedPostProps) {
         <div className="px-3 pb-3">
           <p className="text-sm">
             <Link
-              href={`/profile/${post.comments[post.comments.length - 1].author.username}`}
-              className="font-semibold mr-1"
+              href={`/profile/${encodeURIComponent(post.comments[post.comments.length - 1].author.username)}`}
+              className="font-semibold mr-1 hover:underline"
             >
               {post.comments[post.comments.length - 1].author.username}
             </Link>
-            <span className="text-[#737373]">
+            <span>
               {post.comments[post.comments.length - 1].body.length > 50
                 ? `${post.comments[post.comments.length - 1].body.substring(0, 50)}...`
                 : post.comments[post.comments.length - 1].body}
@@ -7051,15 +7166,14 @@ export function FeedPost({ post }: FeedPostProps) {
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
 import { Heart, MessageCircle } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import type { Post } from "@/lib/types"
 import { formatImageUrl } from "@/lib/image-utils"
 import { useState } from "react"
-import { useAuth } from "@/hooks/use-auth"
-import { postApi } from "@/lib/api/post-api"
+import { useAuth } from "@/lib/auth-context"
+import { postApi } from "@/lib/api"
 import type React from "react"
 
 interface GridPostProps {
@@ -7121,6 +7235,8 @@ export function GridPost({ post, currentUserId }: GridPostProps) {
     }
   }
 
+  const imageUrl = formatImageUrl(post.img) || "/placeholder.svg"
+
   return (
     <div className="border border-[#dbdbdb] rounded-sm overflow-hidden">
       <div className="flex items-center justify-between p-3">
@@ -7150,11 +7266,10 @@ export function GridPost({ post, currentUserId }: GridPostProps) {
 
       <Link href={`/p/${post.slug}`} className="block">
         <div className="relative aspect-square w-full">
-          <Image
-            src={formatImageUrl(post.img) || "/placeholder.svg"}
+          <img
+            src={imageUrl || "/placeholder.svg"}
             alt={post.title || "Post image"}
-            fill
-            className="object-cover"
+            className="object-cover w-full h-full"
           />
           <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-30 transition-opacity flex items-center justify-center opacity-0 hover:opacity-100">
             <div className="flex items-center space-x-4 text-white">
@@ -7642,12 +7757,12 @@ export function MessagesList({ onSelectUser, isMobile = false }: MessagesListPro
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Search, Compass, MessageCircle, Heart, PlusSquare, X, User } from "lucide-react"
-import { SearchIcon } from "lucide-react"
+import { Home, Search, Compass, MessageCircle, Heart, User } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Input } from "@/components/ui/input"
 import { useAuth } from "@/lib/auth-context"
 import { notificationApi } from "@/lib/api"
+import { SearchPanel } from "./search-panel"
+import { NotificationsPanel } from "./notifications-panel"
 
 interface MobileNavigationProps {
   className?: string
@@ -7690,114 +7805,87 @@ export function MobileNavigation({ className }: MobileNavigationProps) {
     }
   }, [showNotifications])
 
-  // Базовые навигационные элементы, доступные всем пользователям
-  const publicNavItems = [
-    { icon: Home, label: "Home", href: "/feed" },
-    { icon: Search, label: "Search", href: "#", onClick: () => setShowSearch(true) },
-    { icon: Compass, label: "Explore", href: "/explore" },
-  ]
-
-  // Навигационные элементы, доступные только авторизованным пользователям
-  const authNavItems = [
-    { icon: MessageCircle, label: "Messages", href: "/messages" },
-    {
-      icon: Heart,
-      label: "Notifications",
-      href: "#",
-      onClick: () => setShowNotifications(true),
-      badge: unreadNotificationsCount,
-    },
-    { icon: PlusSquare, label: "Create", href: "/create" },
-  ]
-
-  // Добавляем профиль для всех пользователей (для неавторизованных будет перенаправление на логин)
-  const profileItem = {
-    icon: User,
-    label: "Profile",
-    href: user ? `/profile/${user.username}` : "/login",
-  }
-
-  // Объединяем навигационные элементы в зависимости от статуса авторизации
-  const navItems = user ? [...publicNavItems, ...authNavItems, profileItem] : [...publicNavItems, profileItem]
-
   // Проверка, активна ли страница Explore или её подстраницы
   const isExploreActive = pathname === "/explore" || pathname.startsWith("/explore/")
+  // Проверка, активна ли страница Feed
+  const isFeedActive = pathname === "/feed"
+  // Проверка, активна ли страница Messages или её подстраницы
+  const isMessagesActive = pathname === "/messages" || pathname.startsWith("/messages/")
+  // Проверка, активна ли страница Profile или её подстраницы
+  const isProfileActive = pathname === "/profile" || pathname.startsWith("/profile/")
+  // Проверка, активна ли страница Create или её подстраницы
+  const isCreateActive = pathname === "/create" || pathname.startsWith("/create/")
+  // Проверка, активна ли страница Search
+  const isSearchActive = pathname === "/search"
 
   return (
     <>
-      <nav className={cn("fixed bottom-0 left-0 z-40 w-full border-t border-[#dbdbdb] bg-white", className)}>
+      <nav className={cn("fixed bottom-0 left-0 z-50 w-full border-t border-[#dbdbdb] bg-white", className)}>
         <div className="flex items-center justify-around py-2 relative">
-          {navItems.map((item) => {
-            // Специальная проверка для Explore
-            const isActive = item.label === "Explore" ? isExploreActive : pathname === item.href
+          <Link
+            href="/feed"
+            className={cn("flex flex-col items-center p-2 text-xs", isFeedActive ? "text-black" : "text-gray-500")}
+          >
+            <Home className="h-6 w-6" />
+            <span className="mt-1">Home</span>
+          </Link>
 
-            if (item.onClick) {
-              return (
-                <button
-                  key={item.label}
-                  onClick={item.onClick}
-                  className={cn("flex flex-col items-center p-2 text-xs", isActive ? "text-black" : "text-gray-500")}
-                >
-                  <div className="relative">
-                    <item.icon className="h-6 w-6" />
-                    {item.badge > 0 && (
-                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
-                        {item.badge > 99 ? "99+" : item.badge}
-                      </span>
-                    )}
-                  </div>
-                  <span className="mt-1">{item.label}</span>
-                </button>
-              )
-            }
+          <button
+            onClick={() => setShowSearch(true)}
+            className={cn(
+              "flex flex-col items-center p-2 text-xs",
+              showSearch || isSearchActive ? "text-black" : "text-gray-500",
+            )}
+          >
+            <Search className="h-6 w-6" />
+            <span className="mt-1">Search</span>
+          </button>
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn("flex flex-col items-center p-2 text-xs", isActive ? "text-black" : "text-gray-500")}
-              >
-                <item.icon className="h-6 w-6" />
-                <span className="mt-1">{item.label}</span>
-              </Link>
-            )
-          })}
+          <Link
+            href="/explore"
+            className={cn("flex flex-col items-center p-2 text-xs", isExploreActive ? "text-black" : "text-gray-500")}
+          >
+            <Compass className="h-6 w-6" />
+            <span className="mt-1">Explore</span>
+          </Link>
+
+          <Link
+            href="/messages"
+            className={cn("flex flex-col items-center p-2 text-xs", isMessagesActive ? "text-black" : "text-gray-500")}
+          >
+            <MessageCircle className="h-6 w-6" />
+            <span className="mt-1">Messages</span>
+          </Link>
+
+          <button
+            onClick={() => setShowNotifications(true)}
+            className={cn("flex flex-col items-center p-2 text-xs", showNotifications ? "text-black" : "text-gray-500")}
+          >
+            <div className="relative">
+              <Heart className="h-6 w-6" />
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+                  {unreadNotificationsCount > 99 ? "99+" : unreadNotificationsCount}
+                </span>
+              )}
+            </div>
+            <span className="mt-1">Notifications</span>
+          </button>
+
+          <Link
+            href={user ? `/profile/${user.username}` : "/login"}
+            className={cn("flex flex-col items-center p-2 text-xs", isProfileActive ? "text-black" : "text-gray-500")}
+          >
+            <User className="h-6 w-6" />
+            <span className="mt-1">Profile</span>
+          </Link>
         </div>
       </nav>
 
-      {/* На мобильных устройствах панели должны быть полноэкранными */}
-      {showSearch && (
-        <div className="fixed inset-0 z-50 bg-white">
-          <div className="p-4 border-b border-[#dbdbdb] flex items-center">
-            <button onClick={() => setShowSearch(false)} className="mr-4">
-              <X className="h-6 w-6" />
-            </button>
-            <h2 className="font-semibold text-lg">Search</h2>
-          </div>
-          <div className="p-4">
-            <div className="relative">
-              <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#737373]" />
-              <Input type="text" placeholder="Search" className="pl-10 pr-10 h-10 bg-[#efefef] border-none" autoFocus />
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Выплывающие панели */}
+      {showSearch && <SearchPanel isOpen={showSearch} onClose={() => setShowSearch(false)} />}
       {showNotifications && (
-        <div className="fixed inset-0 z-50 bg-white">
-          <div className="p-4 border-b border-[#dbdbdb] flex items-center">
-            <button onClick={() => setShowNotifications(false)} className="mr-4">
-              <X className="h-6 w-6" />
-            </button>
-            <h2 className="font-semibold text-lg">Notifications</h2>
-          </div>
-          <div className="p-4 border-b border-[#dbdbdb]">
-            <h3 className="font-medium text-sm">New</h3>
-          </div>
-          <div className="p-6 text-center">
-            <p className="text-[#737373]">No notifications yet</p>
-          </div>
-        </div>
+        <NotificationsPanel isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
       )}
     </>
   )
@@ -7988,7 +8076,16 @@ export function NotificationsDropdown({ isOpen, onClose }: NotificationsDropdown
 
                   <div className="flex-1 min-w-0">
                     <p className="text-sm">
-                      {notification.message}{" "}
+                      {notification.initiator && (
+                        <Link
+                          href={`/profile/${notification.initiator.username}`}
+                          className="font-semibold hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {notification.initiator.username}
+                        </Link>
+                      )}{" "}
+                      {notification.message.replace(/^[a-zA-Z0-9_]+ /, "")}{" "}
                       <span className="text-[#737373]">{new Date(notification.createdAt).toLocaleDateString()}</span>
                     </p>
                   </div>
@@ -8029,7 +8126,6 @@ export function NotificationsDropdown({ isOpen, onClose }: NotificationsDropdown
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -8038,31 +8134,22 @@ import { notificationApi } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import type { Notification } from "@/lib/types"
 import { formatImageUrl } from "@/lib/image-utils"
+import { useMediaQuery } from "@/hooks/use-media-query"
+import { X } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface NotificationsPanelProps {
   isOpen: boolean
   onClose: () => void
 }
 
-// Определяем интерфейс Profile
-interface Profile {
-  id: string
-  username: string
-  img: string
-}
-
-// Интерфейс для расширенного уведомления с данными пользователя
-interface EnhancedNotification extends Notification {
-  userProfile?: Profile
-}
-
-// Добавим обработку прочтения уведомлений при открытии панели
 export function NotificationsPanel({ isOpen, onClose }: NotificationsPanelProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const panelRef = useRef<HTMLDivElement>(null)
   const { user } = useAuth()
   const router = useRouter()
+  const isMobile = useMediaQuery("(max-width: 768px)")
 
   useOnClickOutside(panelRef, onClose)
 
@@ -8089,33 +8176,8 @@ export function NotificationsPanel({ isOpen, onClose }: NotificationsPanelProps)
       }
     } catch (err) {
       console.error("Error fetching notifications:", err)
-      // Если API недоступно, используем моковые данные как запасной вариант
-      setNotifications([
-        {
-          id: 1,
-          type: "like",
-          message: "sashaa liked your photo.",
-          createdAt: new Date().toISOString(),
-          isRead: false,
-          initiator: {
-            id: 101,
-            username: "sashaa",
-            img: "/placeholder.svg?height=32&width=32",
-          },
-        },
-        {
-          id: 2,
-          type: "comment",
-          message: "sashaa commented on your photo.",
-          createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-          isRead: true,
-          initiator: {
-            id: 101,
-            username: "sashaa",
-            img: "/placeholder.svg?height=32&width=32",
-          },
-        },
-      ])
+      // Если API недоступно, используем пустой массив
+      setNotifications([])
     } finally {
       setLoading(false)
     }
@@ -8145,6 +8207,70 @@ export function NotificationsPanel({ isOpen, onClose }: NotificationsPanelProps)
 
   if (!isOpen) return null
 
+  // Мобильная версия панели уведомлений
+  if (isMobile) {
+    return (
+      <div
+        className={cn(
+          "fixed inset-0 bottom-16 z-40 bg-white transition-transform duration-300 ease-in-out",
+          isOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        <div className="flex h-full flex-col">
+          <div className="p-4 border-b border-[#dbdbdb] flex items-center">
+            <button onClick={onClose} className="mr-4">
+              <X className="h-6 w-6" />
+            </button>
+            <h2 className="font-semibold text-lg">Notifications</h2>
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center items-center h-40">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-black"></div>
+            </div>
+          ) : (
+            <div className="overflow-y-auto flex-1">
+              {notifications.length === 0 ? (
+                <div className="p-6 text-center">
+                  <p className="text-[#737373]">No notifications yet</p>
+                </div>
+              ) : (
+                notifications.map((notification) => (
+                  <Link
+                    key={notification.id}
+                    href={notification.initiator ? `/profile/${notification.initiator.username}` : "#"}
+                    onClick={() => handleNotificationClick(notification)}
+                    className="flex items-center p-4 hover:bg-gray-50 border-b border-[#dbdbdb]"
+                  >
+                    <Avatar className="h-10 w-10 mr-3">
+                      <AvatarImage
+                        src={notification.initiator ? formatImageUrl(notification.initiator.img) : "/placeholder.svg"}
+                        alt={notification.initiator?.username || "User"}
+                      />
+                      <AvatarFallback>
+                        {notification.initiator ? notification.initiator.username.slice(0, 2).toUpperCase() : "UN"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <p className="text-sm">
+                        {notification.initiator && (
+                          <span className="font-semibold hover:underline">{notification.initiator.username}</span>
+                        )}{" "}
+                        {notification.message.replace(/^[a-zA-Z0-9_]+ /, "")}
+                      </p>
+                      <p className="text-xs text-[#737373]">{new Date(notification.createdAt).toLocaleDateString()}</p>
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Десктопная версия панели уведомлений
   return (
     <div
       ref={panelRef}
@@ -8194,17 +8320,6 @@ export function NotificationsPanel({ isOpen, onClose }: NotificationsPanelProps)
                     <span className="text-[#737373] ml-2">{new Date(notification.createdAt).toLocaleDateString()}</span>
                   </p>
                 </div>
-                {notification.type === "post" && (
-                  <div className="ml-2 w-10 h-10 relative">
-                    <Image
-                      src="/placeholder.svg?height=40&width=40"
-                      alt="Post thumbnail"
-                      width={40}
-                      height={40}
-                      className="object-cover"
-                    />
-                  </div>
-                )}
               </div>
             ))
           )}
@@ -8230,7 +8345,6 @@ export function NotificationsPanel({ isOpen, onClose }: NotificationsPanelProps)
 
 import type React from "react"
 import Link from "next/link"
-import Image from "next/image"
 import { Heart, MessageCircle } from "lucide-react"
 import type { Post } from "@/lib/types"
 import { formatImageUrl } from "@/lib/image-utils"
@@ -8238,6 +8352,7 @@ import { useEffect, useState } from "react"
 import { postApi } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface PostGridProps {
   posts: Post[]
@@ -8249,18 +8364,20 @@ interface PostGridProps {
 export function PostGrid({ posts, loading, emptyMessage = "No posts yet", emptyIcon }: PostGridProps) {
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-black"></div>
+      <div className="grid grid-cols-3 gap-1">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <Skeleton key={i} className="aspect-square w-full" />
+        ))}
       </div>
     )
   }
 
   if (posts.length === 0) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-8 md:py-12">
         {emptyIcon}
         <p className="text-lg font-medium mb-2">{emptyMessage}</p>
-        <p className="text-muted-foreground">When you post photos, they'll appear here.</p>
+        <p className="text-muted-foreground text-sm md:text-base">When you post photos, they'll appear here.</p>
       </div>
     )
   }
@@ -8282,6 +8399,8 @@ function GridPostItem({ post }: GridPostItemProps) {
   const [stats, setStats] = useState({ likes: post.favoritesCount, comments: post.comments?.length || 0 })
   const { user } = useAuth()
   const [liked, setLiked] = useState(!!post.favorited)
+  const [isHovered, setIsHovered] = useState(false)
+  const [isTouched, setIsTouched] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -8330,26 +8449,41 @@ function GridPostItem({ post }: GridPostItemProps) {
     }
   }
 
+  // Обработчик для мобильных устройств
+  const handleTouch = (e: React.TouchEvent) => {
+    e.preventDefault()
+    setIsTouched(!isTouched)
+  }
+
   return (
-    <Link key={post.id} href={`/p/${post.slug}`} className="relative aspect-square">
-      <Image
+    <Link
+      key={post.id}
+      href={`/p/${post.slug}`}
+      className="relative aspect-square block"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onTouchStart={handleTouch}
+    >
+      <img
         src={formatImageUrl(post.img) || "/placeholder.svg"}
         alt={post.title || "Post"}
-        fill
-        className="object-cover"
+        className="object-cover w-full h-full"
       />
-      <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-30 transition-opacity flex items-center justify-center opacity-0 hover:opacity-100">
-        <div className="flex items-center space-x-4 text-white">
-          <div className="flex items-center" onClick={handleLike}>
-            <Heart className={`h-5 w-5 mr-1 ${liked ? "fill-white" : ""}`} />
-            <span>{stats.likes}</span>
-          </div>
-          <div className="flex items-center">
-            <MessageCircle className="h-5 w-5 mr-1" />
-            <span>{stats.comments}</span>
+      {/* Overlay with info on hover or touch */}
+      {(isHovered || isTouched) && (
+        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center text-white">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center" onClick={handleLike}>
+              <Heart className={`h-5 w-5 mr-1 ${liked ? "fill-white" : ""}`} />
+              <span>{stats.likes}</span>
+            </div>
+            <div className="flex items-center">
+              <MessageCircle className="h-5 w-5 mr-1" />
+              <span>{stats.comments}</span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </Link>
   )
 }
@@ -8928,6 +9062,8 @@ import { useOnClickOutside } from "@/hooks/use-click-outside"
 import { userApi } from "@/lib/api"
 import type { User } from "@/lib/types"
 import { formatImageUrl } from "@/lib/image-utils"
+import { useMediaQuery } from "@/hooks/use-media-query"
+import { cn } from "@/lib/utils"
 
 interface SearchPanelProps {
   isOpen: boolean
@@ -8941,6 +9077,7 @@ export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
   const [loading, setLoading] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const isMobile = useMediaQuery("(max-width: 768px)")
 
   useOnClickOutside(panelRef, onClose)
 
@@ -9027,6 +9164,113 @@ export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
 
   if (!isOpen) return null
 
+  // Мобильная версия панели поиска
+  if (isMobile) {
+    return (
+      <div
+        className={cn(
+          "fixed inset-0 bottom-16 z-40 bg-white transition-transform duration-300 ease-in-out",
+          isOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        <div className="flex h-full flex-col">
+          <div className="p-4 border-b border-[#dbdbdb] flex items-center">
+            <button onClick={onClose} className="mr-4">
+              <X className="h-6 w-6" />
+            </button>
+            <h2 className="font-semibold text-lg">Search</h2>
+          </div>
+          <div className="p-4 overflow-y-auto flex-1">
+            <div className="relative mb-4">
+              <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#737373]" />
+              <Input
+                ref={inputRef}
+                type="text"
+                placeholder="Search"
+                className="pl-10 pr-10 h-10 bg-[#efefef] border-none"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button
+                  onClick={clearSearch}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#737373] hover:text-black"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            <div className="mt-2">
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-black"></div>
+                </div>
+              ) : searchResults.length > 0 ? (
+                <div className="divide-y divide-[#dbdbdb]">
+                  {searchResults.map((user) => (
+                    <Link
+                      key={user.id}
+                      href={`/profile/${user.username}`}
+                      onClick={() => addToRecentSearches(user)}
+                      className="flex items-center p-4 hover:bg-gray-50"
+                    >
+                      <Avatar className="h-12 w-12 mr-3">
+                        <AvatarImage src={formatImageUrl(user.img)} alt={user.username} />
+                        <AvatarFallback>{user.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold">{user.username}</p>
+                        <p className="text-sm text-[#737373]">{user.bio || user.fullName}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : searchQuery ? (
+                <div className="text-center py-8">
+                  <p className="text-[#737373]">No results found for "{searchQuery}"</p>
+                </div>
+              ) : recentSearches.length > 0 ? (
+                <>
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="font-medium text-sm">Recent</h3>
+                  </div>
+                  <div className="divide-y divide-[#dbdbdb]">
+                    {recentSearches.map((user) => (
+                      <div key={user.id} className="flex items-center p-4 hover:bg-gray-50">
+                        <Link
+                          href={`/profile/${user.username}`}
+                          className="flex items-center flex-1"
+                          onClick={() => onClose()}
+                        >
+                          <Avatar className="h-12 w-12 mr-3">
+                            <AvatarImage src={formatImageUrl(user.img)} alt={user.username} />
+                            <AvatarFallback>{user.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold">{user.username}</p>
+                            <p className="text-sm text-[#737373]">{user.bio || user.fullName}</p>
+                          </div>
+                        </Link>
+                        <button
+                          onClick={(e) => removeFromRecentSearches(user.id, e)}
+                          className="text-[#737373] hover:text-black"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Десктопная версия панели поиска
   return (
     <div
       ref={panelRef}
@@ -13815,21 +14059,15 @@ export {
 ## components\ui\skeleton.tsx
 
 ```typescript
+import type React from "react"
 import { cn } from "@/lib/utils"
 
-function Skeleton({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={cn("animate-pulse rounded-md bg-muted", className)}
-      {...props}
-    />
-  )
+function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("animate-pulse rounded-md bg-muted", className)} {...props} />
 }
 
 export { Skeleton }
+
 
 ```
 
@@ -15252,111 +15490,166 @@ import type {
   Profile,
   Notification,
   ChatMessage,
-} from "./types"
+} from "./types";
 
-const API_URL = "https://api.panchenko.work"
+// Fix the API_URL constant to ensure it doesn't end with a slash
+const API_URL = "https://api.panchenko.work";
 
-async function apiRequest<T>(endpoint: string, method = "GET", body?: any, token?: string): Promise<T> {
+async function apiRequest<T>(
+  endpoint: string,
+  method = "GET",
+  body?: any,
+  token?: string
+): Promise<T> {
   const headers: HeadersInit = {
     "Content-Type": "application/json",
-  }
+  };
 
   if (token) {
-    headers["Authorization"] = `Bearer ${token}`
+    headers["Authorization"] = `Bearer ${token}`;
   }
 
   const config: RequestInit = {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
-  }
+  };
 
   try {
-    const response = await fetch(`${API_URL}${endpoint}`, config)
+    const response = await fetch(`${API_URL}${endpoint}`, config);
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      const errorMessage = errorData.message || `API error: ${response.status}`
-      throw new Error(errorMessage)
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.message || `API error: ${response.status}`;
+      throw new Error(errorMessage);
     }
 
     if (method === "DELETE") {
-      return {} as T
+      return {} as T;
     }
 
-    const data = await response.json()
-    return data as T
+    const data = await response.json();
+    return data as T;
   } catch (error) {
-    console.error("API request failed:", error)
-    throw error
+    console.error("API request failed:", error);
+    throw error;
   }
 }
 
 export const userApi = {
-  register: (user: RegisterUser) => apiRequest<{ user: User }>("/users", "POST", { user }),
+  register: (user: RegisterUser) =>
+    apiRequest<{ user: User }>("/users", "POST", { user }),
 
-  login: (user: LoginUser) => apiRequest<{ user: User }>("/users/login", "POST", { user }),
+  login: (user: LoginUser) =>
+    apiRequest<{ user: User }>("/users/login", "POST", { user }),
 
-  current: (token: string) => apiRequest<{ user: User }>("/user", "GET", undefined, token),
+  current: (token: string) =>
+    apiRequest<{ user: User }>("/user", "GET", undefined, token),
 
-  update: (user: UpdateUser, token: string) => apiRequest<{ user: User }>("/user", "PUT", { user }, token),
+  update: (user: UpdateUser, token: string) =>
+    apiRequest<{ user: User }>("/user", "PUT", { user }, token),
 
-  search: (username: string) => apiRequest<{ users: User[] }>(`/users/search?username=${encodeURIComponent(username)}`),
-}
+  search: (username: string) =>
+    apiRequest<{ users: User[] }>(
+      `/users/search?username=${encodeURIComponent(username)}`
+    ),
+};
 
 export const postApi = {
-  create: (post: CreatePost, token: string) => apiRequest<{ post: Post }>("/posts", "POST", { post }, token),
+  create: (post: CreatePost, token: string) =>
+    apiRequest<{ post: Post }>("/posts", "POST", { post }, token),
 
-  list: (params: { author?: string; favorited?: string; limit?: number; offset?: number } = {}, token?: string) => {
-    const queryParams = new URLSearchParams()
-    if (params.author) queryParams.append("author", params.author)
-    if (params.favorited) queryParams.append("favorited", params.favorited)
-    if (params.limit) queryParams.append("limit", params.limit.toString())
-    if (params.offset) queryParams.append("offset", params.offset.toString())
+  list: (
+    params: {
+      author?: string;
+      favorited?: string;
+      limit?: number;
+      offset?: number;
+    } = {},
+    token?: string
+  ) => {
+    const queryParams = new URLSearchParams();
+    if (params.author) queryParams.append("author", params.author);
+    if (params.favorited) queryParams.append("favorited", params.favorited);
+    if (params.limit) queryParams.append("limit", params.limit.toString());
+    if (params.offset) queryParams.append("offset", params.offset.toString());
 
-    const query = queryParams.toString() ? `?${queryParams.toString()}` : ""
-    return apiRequest<{ posts: Post[]; postsCount: number }>(`/posts${query}`, "GET", undefined, token)
+    const query = queryParams.toString() ? `?${queryParams.toString()}` : "";
+    return apiRequest<{ posts: Post[]; postsCount: number }>(
+      `/posts${query}`,
+      "GET",
+      undefined,
+      token
+    );
   },
 
   feed: (params: { limit?: number; offset?: number } = {}, token: string) => {
-    const queryParams = new URLSearchParams()
-    if (params.limit) queryParams.append("limit", params.limit.toString())
-    if (params.offset) queryParams.append("offset", params.offset.toString())
+    const queryParams = new URLSearchParams();
+    if (params.limit) queryParams.append("limit", params.limit.toString());
+    if (params.offset) queryParams.append("offset", params.offset.toString());
 
-    const query = queryParams.toString() ? `?${queryParams.toString()}` : ""
-    return apiRequest<{ posts: Post[]; postsCount: number }>(`/posts/feed${query}`, "GET", undefined, token)
+    const query = queryParams.toString() ? `?${queryParams.toString()}` : "";
+
+    return apiRequest<{ posts: Post[]; postsCount: number }>(
+      `/posts/feed${query}`,
+      "GET",
+      undefined,
+      token
+    );
   },
 
-  get: (slug: string, token?: string) => apiRequest<{ post: Post }>(`/posts/${slug}`, "GET", undefined, token),
+  get: (slug: string, token?: string) =>
+    apiRequest<{ post: Post }>(`/posts/${slug}`, "GET", undefined, token),
 
   update: async (slug: string, post: UpdatePost, token: string) => {
     if (!post.img) {
-      throw new Error("img should not be empty")
+      throw new Error("img should not be empty");
     }
 
     try {
-      return await apiRequest<{ post: Post }>(`/posts/${slug}`, "PUT", { post }, token)
+      return await apiRequest<{ post: Post }>(
+        `/posts/${slug}`,
+        "PUT",
+        { post },
+        token
+      );
     } catch (error) {
-      throw error
+      throw error;
     }
   },
 
-  delete: (slug: string, token: string) => apiRequest<void>(`/posts/${slug}`, "DELETE", undefined, token),
+  delete: (slug: string, token: string) =>
+    apiRequest<void>(`/posts/${slug}`, "DELETE", undefined, token),
 
   favorite: (slug: string, token: string) =>
-    apiRequest<{ post: Post }>(`/posts/${slug}/favorite`, "POST", undefined, token),
+    apiRequest<{ post: Post }>(
+      `/posts/${slug}/favorite`,
+      "POST",
+      undefined,
+      token
+    ),
 
   unfavorite: (slug: string, token: string) =>
-    apiRequest<{ post: Post }>(`/posts/${slug}/favorite`, "DELETE", undefined, token),
+    apiRequest<{ post: Post }>(
+      `/posts/${slug}/favorite`,
+      "DELETE",
+      undefined,
+      token
+    ),
 
   getStats: async (slug: string, token?: string) => {
     try {
-      return await apiRequest<{ likes: number; comments: number }>(`/posts/${slug}/stats`, "GET", undefined, token)
+      return await apiRequest<{ likes: number; comments: number }>(
+        `/posts/${slug}/stats`,
+        "GET",
+        undefined,
+        token
+      );
     } catch (error) {
-      return { likes: 0, comments: 0 }
+      return { likes: 0, comments: 0 };
     }
   },
-}
+};
 
 export const commentApi = {
   list: (slug: string) => apiRequest<Comment[]>(`/posts/${slug}/comments`),
@@ -15365,30 +15658,62 @@ export const commentApi = {
     apiRequest<Comment>(`/posts/${slug}/comments`, "POST", { comment }, token),
 
   delete: (slug: string, commentId: number, token: string) =>
-    apiRequest<void>(`/posts/${slug}/comments/${commentId}`, "DELETE", undefined, token),
-}
+    apiRequest<void>(
+      `/posts/${slug}/comments/${commentId}`,
+      "DELETE",
+      undefined,
+      token
+    ),
+};
 
 export const profileApi = {
-  get: (username: string, token?: string) =>
-    apiRequest<{ profile: Profile }>(`/profiles/${username}`, "GET", undefined, token),
+  get: async (username: string, token: string) => {
+    const response = await fetch(
+      `https://api.panchenko.work/profiles/${username}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch profile");
+    }
+
+    return await response.json();
+  },
 
   follow: (username: string, token: string) =>
-    apiRequest<{ profile: Profile }>(`/profiles/${username}/follow`, "POST", undefined, token),
+    apiRequest<{ profile: Profile }>(
+      `/profiles/${username}/follow`,
+      "POST",
+      undefined,
+      token
+    ),
 
   unfollow: (username: string, token: string) =>
-    apiRequest<{ profile: Profile }>(`/profiles/${username}/follow`, "DELETE", undefined, token),
-}
+    apiRequest<{ profile: Profile }>(
+      `/profiles/${username}/follow`,
+      "DELETE",
+      undefined,
+      token
+    ),
+};
 
 export const notificationApi = {
-  list: (token: string) => apiRequest<Notification[]>("/notifications", "GET", undefined, token),
+  list: (token: string) =>
+    apiRequest<Notification[]>("/notifications", "GET", undefined, token),
 
-  markAsRead: (id: number, token: string) => apiRequest<void>(`/notifications/${id}/read`, "PATCH", undefined, token),
-}
+  markAsRead: (id: number, token: string) =>
+    apiRequest<void>(`/notifications/${id}/read`, "PATCH", undefined, token),
+};
 
 export const uploadApi = {
   userAvatar: async (file: File, token: string) => {
-    const formData = new FormData()
-    formData.append("image", file)
+    const formData = new FormData();
+    formData.append("image", file);
 
     const response = await fetch(`${API_URL}/user/avatar`, {
       method: "POST",
@@ -15396,18 +15721,42 @@ export const uploadApi = {
         Authorization: `Bearer ${token}`,
       },
       body: formData,
-    })
+    });
 
     if (!response.ok) {
-      throw new Error(`Upload failed: ${response.status}`)
+      throw new Error(`Upload failed: ${response.status}`);
     }
 
-    return (await response.json()) as { user: User }
+    return (await response.json()) as { user: User };
   },
 
   postImage: async (slug: string, file: File, token: string) => {
-    const formData = new FormData()
-    formData.append("image", file)
+    const formData = new FormData();
+    formData.append("image", file);
+
+    try {
+      const response = await fetch(`${API_URL}/posts/${slug}/uploadImage`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Upload failed: ${response.status}`);
+      }
+
+      return (await response.json()) as { post: Post };
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  uploadImage: async (file: File, token: string) => {
+    const formData = new FormData();
+    formData.append("image", file);
 
     try {
       const response = await fetch(`${API_URL}/upload`, {
@@ -15416,105 +15765,73 @@ export const uploadApi = {
           Authorization: `Bearer ${token}`,
         },
         body: formData,
-      })
+      });
 
       if (!response.ok) {
-        const postResponse = await fetch(`${API_URL}/posts/${slug}/uploadImage`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        })
-
-        if (!postResponse.ok) {
-          const errorText = await postResponse.text()
-          throw new Error(`Upload failed: ${postResponse.status}`)
-        }
-
-        return (await postResponse.json()) as { post: Post }
+        throw new Error(`Upload failed: ${response.status}`);
       }
 
-      const uploadResult = await response.json()
-      const imageUrl = uploadResult.url || uploadResult.path || ""
-      return await apiRequest<{ post: Post }>(`/posts/${slug}`, "PUT", { post: { img: imageUrl } }, token)
+      const result = await response.json();
+      return result.url || result.path || "";
     } catch (error) {
-      throw error
+      throw error;
     }
   },
-
-  uploadImage: async (file: File, token: string) => {
-    const formData = new FormData()
-    formData.append("image", file)
-
-    try {
-      const endpoints = [`${API_URL}/upload`, `${API_URL}/images/upload`, `${API_URL}/api/upload`]
-      let response = null
-      let error = null
-
-      for (const endpoint of endpoints) {
-        try {
-          response = await fetch(endpoint, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-            body: formData,
-          })
-
-          if (response.ok) {
-            break
-          }
-        } catch (err) {
-          error = err
-        }
-      }
-
-      if (!response || !response.ok) {
-        throw error || new Error("All upload endpoints failed")
-      }
-
-      const result = await response.json()
-      return result.url || result.path || result.image || ""
-    } catch (error) {
-      throw error
-    }
-  },
-}
+};
 
 export const chatApi = {
   sendMessage: async (
-    message: { roomId: string; senderId: number; recipientId: number; content: string },
-    token: string,
+    message: {
+      roomId: string;
+      senderId: number;
+      recipientId: number;
+      content: string;
+    },
+    token: string
   ) => {
-    return apiRequest<{ message: ChatMessage }>("/chat/messages", "POST", { message }, token)
+    return apiRequest<{ message: ChatMessage }>(
+      "/chat/messages",
+      "POST",
+      { message },
+      token
+    );
   },
 
   getMessages: async (roomId: string, token: string) => {
     try {
-      return await apiRequest<{ messages: ChatMessage[] }>(`/chat/rooms/${roomId}/messages`, "GET", undefined, token)
+      return await apiRequest<{ messages: ChatMessage[] }>(
+        `/chat/rooms/${roomId}/messages`,
+        "GET",
+        undefined,
+        token
+      );
     } catch (error) {
-      try {
-        return await apiRequest<{ messages: ChatMessage[] }>(`/messages/${roomId}`, "GET", undefined, token)
-      } catch (secondError) {
-        return { messages: [] }
-      }
+      return { messages: [] };
     }
   },
 
   getRooms: async (token: string) => {
     try {
-      return await apiRequest<{ rooms: string[] }>("/chat/rooms", "GET", undefined, token)
+      return await apiRequest<{ rooms: string[] }>(
+        "/chat/rooms",
+        "GET",
+        undefined,
+        token
+      );
     } catch (error) {
-      return { rooms: [] }
+      return { rooms: [] };
     }
   },
 
   markAsRead: async (messageId: number, token: string) => {
-    return apiRequest<void>(`/chat/messages/${messageId}/read`, "PATCH", undefined, token)
+    return apiRequest<void>(
+      `/chat/messages/${messageId}/read`,
+      "PATCH",
+      undefined,
+      token
+    );
   },
-}
-
+};
 
 ```
 
@@ -15843,52 +16160,63 @@ export const chatApi = {
 ## lib\chat-service.ts
 
 ```typescript
-import type { Message } from "./types"
-import io, { type Socket } from "socket.io-client"
+import type { Message } from "./types";
+import io, { type Socket } from "socket.io-client";
 
 class ChatService {
-  private socket: Socket | null = null
-  private currentUserId: number | null = null
-  private apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.panchenko.work"
-  private token: string | null = null
-  private messageListeners: ((message: Message) => void)[] = []
+  private socket: Socket | null = null;
+  private currentUserId: number | null = null;
+  private apiUrl =
+    process.env.NEXT_PUBLIC_API_URL || "https://api.panchenko.work";
+  private token: string | null = null;
+  private messageListeners: ((message: Message) => void)[] = [];
 
   // Статический метод для генерации roomId
   static generateRoomId(userId1: number, userId2: number): string {
-    return `room_${Math.min(userId1, userId2)}_${Math.max(userId1, userId2)}`
+    return `room_${Math.min(userId1, userId2)}_${Math.max(userId1, userId2)}`;
   }
 
   // Устанавливаем текущего пользователя
   setCurrentUser(userId: number) {
-    this.currentUserId = userId
+    this.currentUserId = userId;
   }
 
   // Устанавливаем токен авторизации
   setToken(token: string) {
-    this.token = token
+    this.token = token;
   }
 
   // Регистрируем обработчик сообщений
   onMessage(callback: (message: Message) => void) {
-    this.messageListeners.push(callback)
+    this.messageListeners.push(callback);
 
     // Возвращаем функцию для отписки
     return () => {
-      this.messageListeners = this.messageListeners.filter((listener) => listener !== callback)
-    }
+      this.messageListeners = this.messageListeners.filter(
+        (listener) => listener !== callback
+      );
+    };
   }
 
   // Подключение к WebSocket
-  async connectToSocket(roomId: string, onMessageReceived: (message: Message) => void) {
+  async connectToSocket(
+    roomId: string,
+    onMessageReceived: (message: Message) => void
+  ) {
     try {
       // Проверяем, имеет ли пользователь доступ к этой переписке
-      if (this.currentUserId && !this.isUserParticipant(this.currentUserId, roomId)) {
-        console.error("Access denied: User is not a participant of this conversation")
-        return Promise.reject(new Error("Access denied"))
+      if (
+        this.currentUserId &&
+        !this.isUserParticipant(this.currentUserId, roomId)
+      ) {
+        console.error(
+          "Access denied: User is not a participant of this conversation"
+        );
+        return Promise.reject(new Error("Access denied"));
       }
 
       if (this.socket) {
-        this.socket.disconnect()
+        this.socket.disconnect();
       }
 
       this.socket = io(this.apiUrl, {
@@ -15898,23 +16226,23 @@ class ChatService {
               Authorization: `Bearer ${this.token}`,
             }
           : {},
-      })
+      });
 
       return new Promise<void>((resolve, reject) => {
         if (!this.socket) {
-          reject(new Error("Socket not initialized"))
-          return
+          reject(new Error("Socket not initialized"));
+          return;
         }
 
         this.socket.on("connect", () => {
-          this.socket?.emit("joinRoom", { roomId })
-          resolve()
-        })
+          this.socket?.emit("joinRoom", { roomId });
+          resolve();
+        });
 
         this.socket.on("connect_error", (error) => {
-          console.error("WebSocket connection error:", error)
-          reject(error)
-        })
+          console.error("WebSocket connection error:", error);
+          reject(error);
+        });
 
         this.socket.on("receiveMessage", (message: Message) => {
           // Проверяем, является ли текущий пользователь участником этого сообщения
@@ -15923,29 +16251,31 @@ class ChatService {
             message.senderId !== this.currentUserId &&
             message.recipientId !== this.currentUserId
           ) {
-            console.error("Received message for another conversation, ignoring")
-            return
+            console.error(
+              "Received message for another conversation, ignoring"
+            );
+            return;
           }
 
-          onMessageReceived(message)
+          onMessageReceived(message);
 
           // Уведомляем всех слушателей о новом сообщении
           this.messageListeners.forEach((listener) => {
             try {
-              listener(message)
+              listener(message);
             } catch (error) {
-              console.error("Error in message listener:", error)
+              console.error("Error in message listener:", error);
             }
-          })
-        })
+          });
+        });
 
         this.socket.on("messageError", (error) => {
-          console.error("Message error:", error)
-        })
-      })
+          console.error("Message error:", error);
+        });
+      });
     } catch (error) {
-      console.error("Error connecting to socket:", error)
-      return Promise.resolve() // Return resolved promise to prevent errors
+      console.error("Error connecting to socket:", error);
+      return Promise.resolve(); // Return resolved promise to prevent errors
     }
   }
 
@@ -15953,11 +16283,11 @@ class ChatService {
   disconnectFromSocket() {
     if (this.socket) {
       try {
-        this.socket.disconnect()
+        this.socket.disconnect();
       } catch (error) {
-        console.error("Error disconnecting socket:", error)
+        console.error("Error disconnecting socket:", error);
       }
-      this.socket = null
+      this.socket = null;
     }
   }
 
@@ -15966,8 +16296,8 @@ class ChatService {
     try {
       // Проверяем, является ли текущий пользователь отправителем сообщения
       if (this.currentUserId && message.senderId !== this.currentUserId) {
-        console.error("Access denied: User is not the sender of this message")
-        return false
+        console.error("Access denied: User is not the sender of this message");
+        return false;
       }
 
       return new Promise<boolean>((resolve) => {
@@ -15975,10 +16305,10 @@ class ChatService {
           this.sendMessageViaREST(message)
             .then(() => resolve(true))
             .catch((error) => {
-              console.error("Failed to send message via REST API:", error)
-              resolve(false)
-            })
-          return
+              console.error("Failed to send message via REST API:", error);
+              resolve(false);
+            });
+          return;
         }
 
         this.socket.emit(
@@ -15992,29 +16322,32 @@ class ChatService {
           },
           (response: any) => {
             if (response && response.error) {
-              console.error("Error sending message via WebSocket:", response.error)
+              console.error(
+                "Error sending message via WebSocket:",
+                response.error
+              );
               // Пробуем отправить через REST API как запасной вариант
               this.sendMessageViaREST(message)
                 .then(() => resolve(true))
                 .catch((error) => {
-                  console.error("Failed to send message via REST API:", error)
-                  resolve(false)
-                })
+                  console.error("Failed to send message via REST API:", error);
+                  resolve(false);
+                });
             } else {
-              resolve(true)
+              resolve(true);
             }
-          },
-        )
+          }
+        );
 
         // Также пробуем сохранить через REST API для надежности
         this.sendMessageViaREST(message).catch((error) => {
-          console.warn("Failed to save message via REST API:", error)
+          console.warn("Failed to save message via REST API:", error);
           // Не отклоняем промис, так как это дополнительная отправка
-        })
-      })
+        });
+      });
     } catch (error) {
-      console.error("Error in sendMessage:", error)
-      return false
+      console.error("Error in sendMessage:", error);
+      return false;
     }
   }
 
@@ -16023,15 +16356,20 @@ class ChatService {
     try {
       // Проверяем, является ли текущий пользователь отправителем сообщения
       if (this.currentUserId && message.senderId !== this.currentUserId) {
-        console.error("Access denied: User is not the sender of this message")
-        return false
+        console.error("Access denied: User is not the sender of this message");
+        return false;
       }
 
       // Пробуем несколько эндпоинтов для повышения надежности
-      const endpoints = [`${this.apiUrl}/chat/messages`, `${this.apiUrl}/messages`, `${this.apiUrl}/api/chat/messages`]
+      // const endpoints = [
+      //   `${this.apiUrl.replace(/\/$/, "")}/chat/messages`,
+      //   `${this.apiUrl.replace(/\/$/, "")}/messages`,
+      //   `${this.apiUrl.replace(/\/$/, "")}/api/chat/messages`,
+      // ]
+      const endpoints = [`${this.apiUrl.replace(/\/$/, "")}/chat/messages`];
 
-      let success = false
-      let lastError = null
+      let success = false;
+      let lastError = null;
 
       for (const endpoint of endpoints) {
         try {
@@ -16042,58 +16380,68 @@ class ChatService {
               ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
             },
             body: JSON.stringify({ message }),
-          })
+          });
 
           if (response.ok) {
-            success = true
-            break
+            success = true;
+            break;
           } else {
-            console.warn(`Endpoint ${endpoint} returned status ${response.status}`)
+            console.warn(
+              `Endpoint ${endpoint} returned status ${response.status}`
+            );
           }
         } catch (error) {
-          lastError = error
-          console.warn(`Failed to send message to ${endpoint}:`, error)
+          lastError = error;
+          console.warn(`Failed to send message to ${endpoint}:`, error);
         }
       }
 
       if (!success && lastError) {
-        throw lastError
+        throw lastError;
       }
 
-      return success
+      return success;
     } catch (error) {
-      console.error("Error sending message via REST API:", error)
-      return false
+      console.error("Error sending message via REST API:", error);
+      return false;
     }
   }
 
   // Метод для проверки, является ли пользователь участником переписки
   isUserParticipant(userId: number, roomId: string): boolean {
-    if (!userId || !roomId) return false
+    if (!userId || !roomId) return false;
 
     // Извлекаем ID участников из roomId
     // Формат roomId: "room_{userId1}_{userId2}", где userId1 < userId2
-    const parts = roomId.split("_")
-    if (parts.length !== 3) return false
+    const parts = roomId.split("_");
+    if (parts.length !== 3) return false;
 
-    const participant1 = Number.parseInt(parts[1])
-    const participant2 = Number.parseInt(parts[2])
+    const participant1 = Number.parseInt(parts[1]);
+    const participant2 = Number.parseInt(parts[2]);
 
     // Проверяем, является ли пользователь одним из участников
-    return userId === participant1 || userId === participant2
+    return userId === participant1 || userId === participant2;
   }
 
   // Получение сообщений из API
   async fetchMessagesFromAPI(roomId: string): Promise<Message[]> {
     try {
       // Проверяем, имеет ли пользователь доступ к этой переписке
-      if (this.currentUserId && !this.isUserParticipant(this.currentUserId, roomId)) {
-        console.error("Access denied: User is not a participant of this conversation")
-        return []
+      if (
+        this.currentUserId &&
+        !this.isUserParticipant(this.currentUserId, roomId)
+      ) {
+        console.error(
+          "Access denied: User is not a participant of this conversation"
+        );
+        return [];
       }
 
       // Используем только проверенный эндпоинт
-      const endpoint = `${this.apiUrl.replace(/\/$/, "")}/chat/rooms/${roomId}/messages`
+      const endpoint = `${this.apiUrl.replace(
+        /\/$/,
+        ""
+      )}/chat/rooms/${roomId}/messages`;
 
       const response = await fetch(endpoint, {
         method: "GET",
@@ -16101,94 +16449,120 @@ class ChatService {
           "Content-Type": "application/json",
           ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
         },
-      })
+      });
 
       if (!response.ok) {
-        console.warn(`Endpoint ${endpoint} returned status ${response.status}`)
+        console.warn(`Endpoint ${endpoint} returned status ${response.status}`);
         // Сразу возвращаем пустой массив вместо попыток использовать другие эндпоинты
-        return []
+        return [];
       }
 
-      const data = await response.json()
+      const data = await response.json();
 
       // Проверяем различные форматы ответа
-      let messages: any[] = []
+      let messages: any[] = [];
 
       if (Array.isArray(data)) {
         // Если ответ - это массив
-        messages = data
+        messages = data;
       } else if (data.messages && Array.isArray(data.messages)) {
         // Если ответ - это объект с полем messages
-        messages = data.messages
+        messages = data.messages;
       } else {
-        console.warn("Unexpected API response format:", data)
-        return []
+        console.warn("Unexpected API response format:", data);
+        return [];
       }
 
       // Фильтруем сообщения, чтобы показывать только те, в которых пользователь является участником
       const filteredMessages = messages.filter((msg) => {
-        const senderId = msg.senderId || (msg.sender && msg.sender.id)
-        const recipientId = msg.recipientId || (msg.recipient && msg.recipient.id)
+        const senderId = msg.senderId || (msg.sender && msg.sender.id);
+        const recipientId =
+          msg.recipientId || (msg.recipient && msg.recipient.id);
 
-        return this.currentUserId && (senderId == this.currentUserId || recipientId == this.currentUserId)
-      })
+        return (
+          this.currentUserId &&
+          (senderId == this.currentUserId || recipientId == this.currentUserId)
+        );
+      });
 
       // Преобразуем сообщения в нужный формат
-      return filteredMessages.map((msg) => this.convertApiMessageToMessage(msg, roomId))
+      return filteredMessages.map((msg) =>
+        this.convertApiMessageToMessage(msg, roomId)
+      );
     } catch (error) {
-      console.error("Error fetching messages from API:", error)
-      return []
+      console.error("Error fetching messages from API:", error);
+      return [];
     }
   }
 
   // Получение сообщений
-  async getMessages(roomId: string, currentUserId: number, recipientId: number): Promise<Message[]> {
+  async getMessages(
+    roomId: string,
+    currentUserId: number,
+    recipientId: number
+  ): Promise<Message[]> {
     try {
       // Проверяем, имеет ли пользователь доступ к этой переписке
       if (!this.isUserParticipant(currentUserId, roomId)) {
-        console.error("Access denied: User is not a participant of this conversation")
-        return []
+        console.error(
+          "Access denied: User is not a participant of this conversation"
+        );
+        return [];
       }
 
       // Сначала пробуем получить из API
-      const apiMessages = await this.fetchMessagesFromAPI(roomId)
+      const apiMessages = await this.fetchMessagesFromAPI(roomId);
 
       if (apiMessages && apiMessages.length > 0) {
         // Нормализуем сообщения и сохраняем в localStorage
-        const normalizedMessages = this.normalizeMessages(apiMessages, roomId, currentUserId, recipientId)
-        this.saveMessagesToLocalStorage(roomId, normalizedMessages)
-        return normalizedMessages
+        const normalizedMessages = this.normalizeMessages(
+          apiMessages,
+          roomId,
+          currentUserId,
+          recipientId
+        );
+        this.saveMessagesToLocalStorage(roomId, normalizedMessages);
+        return normalizedMessages;
       }
 
       // Если из API не получилось, берем из localStorage
-      return this.getMessagesFromLocalStorage(roomId)
+      return this.getMessagesFromLocalStorage(roomId);
     } catch (error) {
-      console.error("Error getting messages:", error)
+      console.error("Error getting messages:", error);
       // В случае ошибки возвращаем сообщения из localStorage
-      return this.getMessagesFromLocalStorage(roomId)
+      return this.getMessagesFromLocalStorage(roomId);
     }
   }
 
   // Нормализация сообщений (исправление полей, если они отсутствуют)
-  normalizeMessages(messages: any[], roomId: string, currentUserId: number, recipientId: number): Message[] {
+  normalizeMessages(
+    messages: any[],
+    roomId: string,
+    currentUserId: number,
+    recipientId: number
+  ): Message[] {
     return messages
       .filter((msg) => {
         // Пропускаем сообщения без необходимых полей
         if (!msg.content) {
-          console.warn("Skipping message without content:", msg)
-          return false
+          console.warn("Skipping message without content:", msg);
+          return false;
         }
 
         // Проверяем, является ли текущий пользователь участником этого сообщения
-        const senderId = this.getSenderId(msg, currentUserId, recipientId)
-        const msgRecipientId = this.getRecipientId(msg, currentUserId, recipientId)
+        const senderId = this.getSenderId(msg, currentUserId, recipientId);
+        const msgRecipientId = this.getRecipientId(
+          msg,
+          currentUserId,
+          recipientId
+        );
 
         if (senderId !== currentUserId && msgRecipientId !== currentUserId) {
-          console.warn("Skipping message - user is not a participant:", msg)
-          return false
+          console.warn("Skipping message - user is not a participant:", msg);
+          return false;
         }
 
-        return true
+        return true;
       })
       .map((msg) => {
         // Нормализуем формат сообщения
@@ -16200,70 +16574,81 @@ class ChatService {
           // Восстанавливаем senderId и recipientId, если они отсутствуют
           senderId: this.getSenderId(msg, currentUserId, recipientId),
           recipientId: this.getRecipientId(msg, currentUserId, recipientId),
-        }
-        return normalizedMsg
-      })
+        };
+        return normalizedMsg;
+      });
   }
 
   // Получение senderId из сообщения или восстановление из контекста
-  private getSenderId(msg: any, currentUserId: number, recipientId: number): number {
+  private getSenderId(
+    msg: any,
+    currentUserId: number,
+    recipientId: number
+  ): number {
     // Если есть прямое поле senderId, используем его
     if (msg.senderId !== undefined && msg.senderId !== null) {
-      return Number(msg.senderId)
+      return Number(msg.senderId);
     }
 
     // Если есть sender.id, используем его
     if (msg.sender && msg.sender.id !== undefined) {
-      return Number(msg.sender.id)
+      return Number(msg.sender.id);
     }
 
     // Если есть recipientId и это не текущий пользователь, значит отправитель - текущий пользователь
-    if (msg.recipientId !== undefined && Number(msg.recipientId) !== currentUserId) {
-      return currentUserId
+    if (
+      msg.recipientId !== undefined &&
+      Number(msg.recipientId) !== currentUserId
+    ) {
+      return currentUserId;
     }
 
     // Если ничего не помогло, предполагаем, что это либо текущий пользователь, либо собеседник
     // на основе других данных (например, если сообщение отправлено "мной", то senderId = currentUserId)
     if (msg.isMine || msg.isFromMe) {
-      return currentUserId
+      return currentUserId;
     }
 
     // В крайнем случае, если ничего не помогло, возвращаем recipientId как запасной вариант
-    return recipientId
+    return recipientId;
   }
 
   // Получение recipientId из сообщения или восстановление из контекста
-  private getRecipientId(msg: any, currentUserId: number, recipientId: number): number {
+  private getRecipientId(
+    msg: any,
+    currentUserId: number,
+    recipientId: number
+  ): number {
     // Если есть прямое поле recipientId, используем его
     if (msg.recipientId !== undefined && msg.recipientId !== null) {
-      return Number(msg.recipientId)
+      return Number(msg.recipientId);
     }
 
     // Если есть recipient.id, используем его
     if (msg.recipient && msg.recipient.id !== undefined) {
-      return Number(msg.recipient.id)
+      return Number(msg.recipient.id);
     }
 
     // Если есть senderId и это не текущий пользователь, значит получатель - текущий пользователь
     if (msg.senderId !== undefined && Number(msg.senderId) !== currentUserId) {
-      return currentUserId
+      return currentUserId;
     }
 
     // Если ничего не помогло, предполагаем, что это либо текущий пользователь, либо собеседник
     if (msg.isMine || msg.isFromMe) {
-      return recipientId
+      return recipientId;
     }
 
     // В крайнем случае, если ничего не помогло, возвращаем currentUserId как запасной вариант
-    return currentUserId
+    return currentUserId;
   }
 
   // Сохранение сообщений в localStorage
   saveMessagesToLocalStorage(roomId: string, messages: Message[]) {
     try {
-      localStorage.setItem(`chat_messages_${roomId}`, JSON.stringify(messages))
+      localStorage.setItem(`chat_messages_${roomId}`, JSON.stringify(messages));
     } catch (error) {
-      console.error("Error saving messages to localStorage:", error)
+      console.error("Error saving messages to localStorage:", error);
     }
   }
 
@@ -16271,32 +16656,41 @@ class ChatService {
   getMessagesFromLocalStorage(roomId: string): Message[] {
     try {
       // Проверяем, имеет ли пользователь доступ к этой переписке
-      if (this.currentUserId && !this.isUserParticipant(this.currentUserId, roomId)) {
-        console.error("Access denied: User is not a participant of this conversation")
-        return []
+      if (
+        this.currentUserId &&
+        !this.isUserParticipant(this.currentUserId, roomId)
+      ) {
+        console.error(
+          "Access denied: User is not a participant of this conversation"
+        );
+        return [];
       }
 
-      const messagesJson = localStorage.getItem(`chat_messages_${roomId}`)
+      const messagesJson = localStorage.getItem(`chat_messages_${roomId}`);
       if (messagesJson) {
-        const messages = JSON.parse(messagesJson)
+        const messages = JSON.parse(messagesJson);
 
         // Фильтруем сообщения, чтобы показывать только те, в которых пользователь является участником
         return messages.filter((msg: Message) => {
-          return this.currentUserId && (msg.senderId == this.currentUserId || msg.recipientId == this.currentUserId)
-        })
+          return (
+            this.currentUserId &&
+            (msg.senderId == this.currentUserId ||
+              msg.recipientId == this.currentUserId)
+          );
+        });
       }
     } catch (error) {
-      console.error("Error getting messages from localStorage:", error)
+      console.error("Error getting messages from localStorage:", error);
     }
-    return []
+    return [];
   }
 
   // Очистка сообщений из localStorage
   clearMessagesToLocalStorage(roomId: string) {
     try {
-      localStorage.removeItem(`chat_messages_${roomId}`)
+      localStorage.removeItem(`chat_messages_${roomId}`);
     } catch (error) {
-      console.error("Error clearing messages from localStorage:", error)
+      console.error("Error clearing messages from localStorage:", error);
     }
   }
 
@@ -16306,34 +16700,49 @@ class ChatService {
       // Проверяем структуру данных из API
 
       // Извлекаем senderId и recipientId из объектов sender и recipient
-      let senderId = apiMessage.senderId
-      let recipientId = apiMessage.recipientId
+      let senderId = apiMessage.senderId;
+      let recipientId = apiMessage.recipientId;
 
       // Если senderId и recipientId не числа, а объекты sender и recipient
-      if (!senderId && apiMessage.sender && typeof apiMessage.sender === "object") {
-        senderId = apiMessage.sender.id
+      if (
+        !senderId &&
+        apiMessage.sender &&
+        typeof apiMessage.sender === "object"
+      ) {
+        senderId = apiMessage.sender.id;
       }
 
-      if (!recipientId && apiMessage.recipient && typeof apiMessage.recipient === "object") {
-        recipientId = apiMessage.recipient.id
+      if (
+        !recipientId &&
+        apiMessage.recipient &&
+        typeof apiMessage.recipient === "object"
+      ) {
+        recipientId = apiMessage.recipient.id;
       }
 
       // Проверяем, что senderId и recipientId определены
       if (!senderId || !recipientId) {
-        console.warn("Message missing senderId or recipientId:", apiMessage)
+        console.warn("Message missing senderId or recipientId:", apiMessage);
         // Используем значения по умолчанию, если не удалось извлечь
-        senderId = senderId || this.currentUserId || 0
-        recipientId = recipientId || 0
+        senderId = senderId || this.currentUserId || 0;
+        recipientId = recipientId || 0;
       }
 
       // Преобразуем в числа для безопасности
-      senderId = Number(senderId)
-      recipientId = Number(recipientId)
+      senderId = Number(senderId);
+      recipientId = Number(recipientId);
 
       // Проверяем, является ли текущий пользователь участником этого сообщения
-      if (this.currentUserId && senderId !== this.currentUserId && recipientId !== this.currentUserId) {
-        console.warn("Skipping message - user is not a participant:", apiMessage)
-        throw new Error("User is not a participant of this message")
+      if (
+        this.currentUserId &&
+        senderId !== this.currentUserId &&
+        recipientId !== this.currentUserId
+      ) {
+        console.warn(
+          "Skipping message - user is not a participant:",
+          apiMessage
+        );
+        throw new Error("User is not a participant of this message");
       }
 
       return {
@@ -16344,9 +16753,9 @@ class ChatService {
         senderId: senderId,
         recipientId: recipientId,
         read: apiMessage.read || false,
-      }
+      };
     } catch (error) {
-      console.error("Error converting API message:", error)
+      console.error("Error converting API message:", error);
       // Return a default message object to prevent errors
       return {
         id: Date.now().toString(),
@@ -16356,13 +16765,13 @@ class ChatService {
         senderId: 0,
         recipientId: 0,
         read: false,
-      }
+      };
     }
   }
 
   // Альтернативный метод загрузки чатов
   loadChatsAlternative = async (user: any, addSampleChat: any) => {
-    if (!user?.token) return
+    if (!user?.token) return;
 
     try {
       // Пробуем получить сообщения через эндпоинт chat/messages вместо /messages
@@ -16372,46 +16781,51 @@ class ChatService {
           Authorization: `Bearer ${user.token}`,
           "Content-Type": "application/json",
         },
-      })
+      });
 
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
+        throw new Error(`API error: ${response.status}`);
       }
 
-      const data = await response.json()
+      const data = await response.json();
 
       // Остальной код обработки данных...
     } catch (error) {
-      console.error("Error loading chats alternative:", error)
+      console.error("Error loading chats alternative:", error);
       // Если и этот метод не сработал, сразу добавляем пример чата
       // без попыток использовать другие эндпоинты
-      addSampleChat()
+      addSampleChat();
     }
-  }
+  };
 }
 
-export const chatService = new ChatService()
-
+export const chatService = new ChatService();
 
 ```
 
 ## lib\image-utils.ts
 
 ```typescript
-export function formatImageUrl(imageUrl: string | undefined | null): string {
-  if (!imageUrl) {
-    return "/placeholder.svg?height=400&width=400"
+export function formatImageUrl(url: string | undefined | null): string {
+  if (!url) return "/placeholder.svg?height=300&width=300"
+
+  // Если URL уже абсолютный (начинается с http:// или https://)
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url
   }
 
-  if (imageUrl.startsWith("http")) {
-    return imageUrl
+  // Если URL относительный (начинается с /uploads/)
+  if (url.startsWith("/uploads/")) {
+    return `https://api.panchenko.work${url}`
   }
 
-  if (imageUrl.startsWith("uploads/")) {
-    return `https://api.panchenko.work/${imageUrl}`
+  // Если URL относительный (начинается с uploads/)
+  if (url.startsWith("uploads/")) {
+    return `https://api.panchenko.work/${url}`
   }
 
-  return imageUrl
+  // Для других случаев возвращаем как есть
+  return url
 }
 
 

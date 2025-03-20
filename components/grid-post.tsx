@@ -1,15 +1,14 @@
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
 import { Heart, MessageCircle } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import type { Post } from "@/lib/types"
 import { formatImageUrl } from "@/lib/image-utils"
 import { useState } from "react"
-import { useAuth } from "@/hooks/use-auth"
-import { postApi } from "@/lib/api/post-api"
+import { useAuth } from "@/lib/auth-context"
+import { postApi } from "@/lib/api"
 import type React from "react"
 
 interface GridPostProps {
@@ -71,6 +70,8 @@ export function GridPost({ post, currentUserId }: GridPostProps) {
     }
   }
 
+  const imageUrl = formatImageUrl(post.img) || "/placeholder.svg"
+
   return (
     <div className="border border-[#dbdbdb] rounded-sm overflow-hidden">
       <div className="flex items-center justify-between p-3">
@@ -100,11 +101,10 @@ export function GridPost({ post, currentUserId }: GridPostProps) {
 
       <Link href={`/p/${post.slug}`} className="block">
         <div className="relative aspect-square w-full">
-          <Image
-            src={formatImageUrl(post.img) || "/placeholder.svg"}
+          <img
+            src={imageUrl || "/placeholder.svg"}
             alt={post.title || "Post image"}
-            fill
-            className="object-cover"
+            className="object-cover w-full h-full"
           />
           <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-30 transition-opacity flex items-center justify-center opacity-0 hover:opacity-100">
             <div className="flex items-center space-x-4 text-white">

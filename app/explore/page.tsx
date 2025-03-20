@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { Sidebar } from "@/components/sidebar"
 import { MobileNavigation } from "@/components/mobile-navigation"
@@ -11,8 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { postApi } from "@/lib/api"
 import type { Post } from "@/lib/types"
 import { useAuth } from "@/lib/auth-context"
-// Import the formatImageUrl utility at the top of the file
 import { formatImageUrl } from "@/lib/image-utils"
+import { Skeleton } from "@/components/ui/skeleton"
 
 // Categories for tabs
 const CATEGORIES = [
@@ -65,19 +64,19 @@ export default function ExplorePage() {
       <Sidebar className="hidden md:flex" />
 
       <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
-        <div className="mx-auto max-w-7xl py-6 px-4">
-          <h1 className="text-2xl font-bold mb-6">Explore</h1>
+        <div className="mx-auto max-w-full md:max-w-7xl py-4 px-3 md:py-6 md:px-4 pb-16 md:pb-4">
+          <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Explore</h1>
 
-          {/* Categories */}
-          <div className="mb-6 overflow-x-auto hide-scrollbar">
+          {/* Categories - Scrollable on mobile */}
+          <div className="mb-4 md:mb-6 overflow-x-auto hide-scrollbar px-3 -mx-3 w-screen md:w-auto">
             <Tabs defaultValue="all" onValueChange={setSelectedCategory}>
-              <TabsList className="bg-transparent h-auto p-0 w-auto">
-                <div className="flex space-x-2">
+              <TabsList className="bg-transparent h-auto p-0 w-full">
+                <div className="flex space-x-2 pb-1 overflow-x-auto hide-scrollbar">
                   {CATEGORIES.map((category) => (
                     <TabsTrigger
                       key={category.id}
                       value={category.id}
-                      className="rounded-full bg-[#efefef] px-4 py-2 data-[state=active]:bg-black data-[state=active]:text-white"
+                      className="rounded-full bg-[#efefef] px-3 py-1.5 md:px-4 md:py-2 text-sm whitespace-nowrap data-[state=active]:bg-black data-[state=active]:text-white"
                     >
                       {category.label}
                     </TabsTrigger>
@@ -86,13 +85,15 @@ export default function ExplorePage() {
               </TabsList>
 
               {CATEGORIES.map((category) => (
-                <TabsContent key={category.id} value={category.id} className="mt-6">
+                <TabsContent key={category.id} value={category.id} className="mt-4 md:mt-6">
                   {loading ? (
-                    <div className="flex justify-center items-center h-64">
-                      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
+                      {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <Skeleton key={i} className="aspect-square w-full" />
+                      ))}
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
                       {filteredPosts.map((post) => (
                         <ExplorePostCard key={post.id} post={post} token={user?.token} />
                       ))}
@@ -117,8 +118,8 @@ interface ExplorePostCardProps {
 
 function ExplorePostCard({ post, token }: ExplorePostCardProps) {
   const [isHovered, setIsHovered] = useState(false)
+  const [isTouched, setIsTouched] = useState(false)
   const [stats, setStats] = useState({ likes: post.favoritesCount, comments: post.comments?.length || 0 })
-
   const [liked, setLiked] = useState(post.favorited === true)
   const [likesCount, setLikesCount] = useState(stats.likes)
   const { user } = useAuth()
@@ -176,30 +177,38 @@ function ExplorePostCard({ post, token }: ExplorePostCardProps) {
     }
   }
 
+  // Обработчик для мобильных устройств
+  const handleTouch = (e: React.TouchEvent) => {
+    e.preventDefault()
+    setIsTouched(!isTouched)
+  }
+
+  const imageUrl = formatImageUrl(post.img)
+
   return (
     <Link
       href={`/p/${post.slug}`}
       className="relative aspect-square block overflow-hidden"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onTouchStart={handleTouch}
     >
-      <Image
-        src={formatImageUrl(post.img) || "/placeholder.svg"}
+      <img
+        src={imageUrl || "/placeholder.svg"}
         alt={post.title || "Post image"}
-        fill
-        className="object-cover transition-transform duration-300 ease-in-out hover:scale-105"
+        className="object-cover w-full h-full transition-transform duration-300 ease-in-out hover:scale-105"
       />
 
-      {/* Overlay with info on hover */}
-      {isHovered && (
+      {/* Overlay with info on hover or touch */}
+      {(isHovered || isTouched) && (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center text-white">
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-4">
             {/* Обновим отображение иконки лайка в оверлее при наведении */}
             <div className="flex items-center">
               <button onClick={handleLike} className="flex items-center">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6 mr-2"
+                  className="h-5 w-5 mr-1 md:h-6 md:w-6 md:mr-2"
                   fill={liked ? "currentColor" : "none"}
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -212,13 +221,13 @@ function ExplorePostCard({ post, token }: ExplorePostCardProps) {
                     d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
                   />
                 </svg>
-                <span>{likesCount}</span>
+                <span className="text-sm md:text-base">{likesCount}</span>
               </button>
             </div>
             <div className="flex items-center">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6 mr-2"
+                className="h-5 w-5 mr-1 md:h-6 md:w-6 md:mr-2"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -230,7 +239,7 @@ function ExplorePostCard({ post, token }: ExplorePostCardProps) {
                   d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                 />
               </svg>
-              <span>{stats.comments}</span>
+              <span className="text-sm md:text-base">{stats.comments}</span>
             </div>
           </div>
         </div>

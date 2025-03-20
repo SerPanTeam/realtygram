@@ -29,7 +29,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
       <div className="w-full max-w-md">
         <div className="rounded-lg bg-white p-8 shadow-sm">
           <div className="mb-8 text-center">
-            <h1 className="text-4xl font-bold italic tracking-tighter">RealtyGRAM</h1>
+            <h1 className="text-4xl font-bold italic tracking-tighter">ICMGRAM</h1>
           </div>
 
           <div className="mb-6 flex flex-col items-center text-center">

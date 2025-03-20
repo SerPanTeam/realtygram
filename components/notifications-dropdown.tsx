@@ -169,7 +169,16 @@ export function NotificationsDropdown({ isOpen, onClose }: NotificationsDropdown
 
                   <div className="flex-1 min-w-0">
                     <p className="text-sm">
-                      {notification.message}{" "}
+                      {notification.initiator && (
+                        <Link
+                          href={`/profile/${notification.initiator.username}`}
+                          className="font-semibold hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {notification.initiator.username}
+                        </Link>
+                      )}{" "}
+                      {notification.message.replace(/^[a-zA-Z0-9_]+ /, "")}{" "}
                       <span className="text-[#737373]">{new Date(notification.createdAt).toLocaleDateString()}</span>
                     </p>
                   </div>

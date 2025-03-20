@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { Heart, MessageCircle, Send, Bookmark } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -10,6 +9,7 @@ import type { Post as PostType } from "@/lib/types"
 import { postApi } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { formatImageUrl } from "@/lib/image-utils"
+import { useRouter } from "next/navigation"
 
 interface FeedPostProps {
   post: PostType
@@ -17,9 +17,11 @@ interface FeedPostProps {
 
 export function FeedPost({ post }: FeedPostProps) {
   const [liked, setLiked] = useState(post.favorited === true)
+  console.log(post);
   const [likesCount, setLikesCount] = useState(post.favoritesCount)
   const [commentsCount, setCommentsCount] = useState(post.comments?.length || 0)
   const { user } = useAuth()
+  const router = useRouter()
 
   useEffect(() => {
     const fetchPostStats = async () => {
@@ -42,7 +44,10 @@ export function FeedPost({ post }: FeedPostProps) {
   }, [post.slug, post.favoritesCount, post.comments, post.favorited, user])
 
   const handleLike = async () => {
-    if (!user?.token) return
+    if (!user?.token) {
+      router.push(`/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`)
+      return
+    }
 
     try {
       setLiked(!liked)
@@ -69,12 +74,20 @@ export function FeedPost({ post }: FeedPostProps) {
     const date = new Date(dateString)
     const now = new Date()
     const diffTime = Math.abs(now.getTime() - date.getTime())
+    const diffMinutes = Math.floor(diffTime / (1000 * 60))
+    const diffHours = Math.floor(diffTime / (1000 * 60 * 60))
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
 
-    if (diffDays < 7) {
+    if (diffMinutes < 1) {
+      return "just now"
+    } else if (diffMinutes < 60) {
+      return `${diffMinutes}m`
+    } else if (diffHours < 24) {
+      return `${diffHours}h`
+    } else if (diffDays < 7) {
       return `${diffDays}d`
     } else if (diffDays < 30) {
-      return `${Math.floor(diffDays / 7)} wek`
+      return `${Math.floor(diffDays / 7)}w`
     } else if (diffDays < 365) {
       return `${Math.floor(diffDays / 30)}mo`
     } else {
@@ -91,11 +104,13 @@ export function FeedPost({ post }: FeedPostProps) {
     return new Intl.NumberFormat().format(num)
   }
 
+  const imageUrl = formatImageUrl(post.img) || "/placeholder.svg"
+
   return (
     <article className="mb-6 border border-[#dbdbdb] rounded-sm bg-white">
       <div className="flex items-center justify-between p-3">
         <div className="flex items-center">
-          <Link href={`/profile/${post.author.username}`} className="flex items-center">
+          <Link href={`/profile/${encodeURIComponent(post.author.username)}`} className="flex items-center">
             <Avatar className="h-8 w-8 mr-2">
               <AvatarImage src={formatImageUrl(post.author.img)} alt={post.author.username} />
               <AvatarFallback>{post.author.username.slice(0, 2).toUpperCase()} </AvatarFallback>
@@ -117,12 +132,10 @@ export function FeedPost({ post }: FeedPostProps) {
 
       <div className="relative aspect-square w-full">
         <Link href={`/p/${post.slug}`}>
-          <Image
-            src={formatImageUrl(post.img) || "/placeholder.svg"}
+          <img
+            src={imageUrl || "/placeholder.svg"}
             alt={post.title || "Post image"}
-            fill
-            className="object-cover"
-            priority
+            className="object-cover w-full h-full"
           />
         </Link>
       </div>
@@ -150,7 +163,7 @@ export function FeedPost({ post }: FeedPostProps) {
 
       <div className="px-3 pb-1">
         <p className="text-sm">
-          <Link href={`/profile/${post.author.username}`} className="font-semibold mr-1">
+          <Link href={`/profile/${encodeURIComponent(post.author.username)}`} className="font-semibold mr-1">
             {post.author.username}
           </Link>
           {post.content}
@@ -171,12 +184,12 @@ export function FeedPost({ post }: FeedPostProps) {
         <div className="px-3 pb-3">
           <p className="text-sm">
             <Link
-              href={`/profile/${post.comments[post.comments.length - 1].author.username}`}
-              className="font-semibold mr-1"
+              href={`/profile/${encodeURIComponent(post.comments[post.comments.length - 1].author.username)}`}
+              className="font-semibold mr-1 hover:underline"
             >
               {post.comments[post.comments.length - 1].author.username}
             </Link>
-            <span className="text-[#737373]">
+            <span>
               {post.comments[post.comments.length - 1].body.length > 50
                 ? `${post.comments[post.comments.length - 1].body.substring(0, 50)}...`
                 : post.comments[post.comments.length - 1].body}

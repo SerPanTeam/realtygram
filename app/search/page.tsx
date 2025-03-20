@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { SearchIcon, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
@@ -9,108 +8,20 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Sidebar } from "@/components/sidebar"
 import { MobileNavigation } from "@/components/mobile-navigation"
 import { formatImageUrl } from "@/lib/image-utils"
-
-const MOCK_USERS = [
-  {
-    id: "101",
-    username: "sashaa",
-    fullName: "Sasha",
-    avatar: "/placeholder.svg?height=32&width=32",
-    isVerified: true,
-  },
-  {
-    id: "102",
-    username: "nature_lover",
-    fullName: "Nature Photography",
-    avatar: "/placeholder.svg?height=32&width=32",
-    isVerified: false,
-  },
-  {
-    id: "103",
-    username: "traveler",
-    fullName: "World Traveler",
-    avatar: "/placeholder.svg?height=32&width=32",
-    isVerified: false,
-  },
-  {
-    id: "104",
-    username: "photographer",
-    fullName: "Professional Photographer",
-    avatar: "/placeholder.svg?height=32&width=32",
-    isVerified: true,
-  },
-  {
-    id: "105",
-    username: "autumn_fan",
-    fullName: "Autumn Colors",
-    avatar: "/placeholder.svg?height=32&width=32",
-    isVerified: false,
-  },
-]
-
-const MOCK_POPULAR_POSTS = [
-  {
-    id: "1",
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Final_project.png-SJh5ACjfbUavtx6G4ZzTCvX4o2EZLl.jpeg",
-    likes: 1024,
-  },
-  {
-    id: "2",
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Final_project.png-SJh5ACjfbUavtx6G4ZzTCvX4o2EZLl.jpeg",
-    likes: 876,
-  },
-  {
-    id: "3",
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Final_project.png-SJh5ACjfbUavtx6G4ZzTCvX4o2EZLl.jpeg",
-    likes: 743,
-  },
-  {
-    id: "4",
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Final_project.png-SJh5ACjfbUavtx6G4ZzTCvX4o2EZLl.jpeg",
-    likes: 692,
-  },
-  {
-    id: "5",
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Final_project.png-SJh5ACjfbUavtx6G4ZzTCvX4o2EZLl.jpeg",
-    likes: 581,
-  },
-  {
-    id: "6",
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Final_project.png-SJh5ACjfbUavtx6G4ZzTCvX4o2EZLl.jpeg",
-    likes: 429,
-  },
-  {
-    id: "7",
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Final_project.png-SJh5ACjfbUavtx6G4ZzTCvX4o2EZLl.jpeg",
-    likes: 387,
-  },
-  {
-    id: "8",
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Final_project.png-SJh5ACjfbUavtx6G4ZzTCvX4o2EZLl.jpeg",
-    likes: 352,
-  },
-  {
-    id: "9",
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Final_project.png-SJh5ACjfbUavtx6G4ZzTCvX4o2EZLl.jpeg",
-    likes: 298,
-  },
-]
+import { useAuth } from "@/lib/auth-context"
+import { userApi, postApi } from "@/lib/api"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState([])
   const [recentSearches, setRecentSearches] = useState([])
   const [loading, setLoading] = useState(false)
+  const [popularPosts, setPopularPosts] = useState([])
+  const [loadingPosts, setLoadingPosts] = useState(true)
+  const { user } = useAuth()
 
+  // Загрузка недавних поисков из localStorage при инициализации
   useEffect(() => {
     const savedSearches = localStorage.getItem("recentSearches")
     if (savedSearches) {
@@ -120,26 +31,49 @@ export default function SearchPage() {
         console.error("Error parsing recent searches:", e)
         setRecentSearches([])
       }
-    } else {
-      const defaultRecent = [MOCK_USERS[0]]
-      setRecentSearches(defaultRecent)
-      localStorage.setItem("recentSearches", JSON.stringify(defaultRecent))
     }
   }, [])
 
+  // Загрузка популярных постов
+  useEffect(() => {
+    const fetchPopularPosts = async () => {
+      setLoadingPosts(true)
+      try {
+        const { posts } = await postApi.list({ limit: 9, sort: "popular" }, user?.token)
+        setPopularPosts(posts)
+      } catch (err) {
+        console.error("Error fetching popular posts:", err)
+        setPopularPosts([])
+      } finally {
+        setLoadingPosts(false)
+      }
+    }
+
+    fetchPopularPosts()
+  }, [user])
+
+  // Поиск пользователей при вводе запроса
   useEffect(() => {
     if (searchQuery.trim()) {
       setLoading(true)
 
-      setTimeout(() => {
-        const results = MOCK_USERS.filter(
-          (user) =>
-            user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            user.fullName.toLowerCase().includes(searchQuery.toLowerCase()),
-        )
-        setSearchResults(results)
-        setLoading(false)
+      const searchUsers = async () => {
+        try {
+          const { users } = await userApi.search(searchQuery)
+          setSearchResults(users)
+        } catch (err) {
+          console.error("Error searching users:", err)
+          setSearchResults([])
+        } finally {
+          setLoading(false)
+        }
+      }
+
+      const debounce = setTimeout(() => {
+        searchUsers()
       }, 300)
+
+      return () => clearTimeout(debounce)
     } else {
       setSearchResults([])
     }
@@ -149,7 +83,7 @@ export default function SearchPage() {
     const isExisting = recentSearches.some((item) => item.id === user.id)
 
     if (!isExisting) {
-      const updatedSearches = [user, ...recentSearches].slice(0, 5)
+      const updatedSearches = [user, ...recentSearches].slice(0, 5) // Ограничиваем до 5 последних поисков
       setRecentSearches(updatedSearches)
       localStorage.setItem("recentSearches", JSON.stringify(updatedSearches))
     }
@@ -170,9 +104,10 @@ export default function SearchPage() {
     <div className="flex min-h-screen bg-white">
       <Sidebar className="hidden md:flex" />
 
-      <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
-        <div className="mx-auto max-w-4xl py-8 px-4">
-          <div className="relative mb-6">
+      <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px] w-full pb-16 md:pb-0">
+        <div className="mx-auto max-w-4xl py-4 md:py-8 px-4">
+          {/* Поисковая строка */}
+          <div className="relative mb-4 md:mb-6">
             <div className="relative">
               <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#737373]" />
               <Input
@@ -193,11 +128,20 @@ export default function SearchPage() {
             </div>
           </div>
 
+          {/* Результаты поиска или недавние поиски */}
           {searchQuery ? (
             <div className="bg-white rounded-lg shadow-sm border border-[#dbdbdb]">
               {loading ? (
-                <div className="flex justify-center items-center h-40">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-black"></div>
+                <div className="p-4 space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center space-x-4">
+                      <Skeleton className="h-12 w-12 rounded-full" />
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-3 w-32" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="divide-y divide-[#dbdbdb]">
@@ -210,13 +154,13 @@ export default function SearchPage() {
                         className="flex items-center p-4 hover:bg-gray-50"
                       >
                         <Avatar className="h-12 w-12 mr-3">
-                          <AvatarImage src={formatImageUrl(user.avatar)} alt={user.username} />
+                          <AvatarImage src={formatImageUrl(user.img)} alt={user.username} />
                           <AvatarFallback>{user.username.slice(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
 
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold">{user.username}</p>
-                          <p className="text-sm text-[#737373]">{user.fullName}</p>
+                          <p className="text-sm text-[#737373]">{user.bio || user.fullName}</p>
                         </div>
                       </Link>
                     ))
@@ -230,8 +174,9 @@ export default function SearchPage() {
             </div>
           ) : (
             <>
+              {/* Недавние поиски */}
               {recentSearches.length > 0 && (
-                <div className="bg-white rounded-lg shadow-sm border border-[#dbdbdb] mb-8">
+                <div className="bg-white rounded-lg shadow-sm border border-[#dbdbdb] mb-6">
                   <div className="p-4 border-b border-[#dbdbdb] flex justify-between items-center">
                     <h2 className="font-semibold">Recent</h2>
                   </div>
@@ -239,15 +184,15 @@ export default function SearchPage() {
                   <div className="divide-y divide-[#dbdbdb]">
                     {recentSearches.map((user) => (
                       <div key={user.id} className="flex items-center p-4 hover:bg-gray-50">
-                        <Link href={`/profile/${user.id}`} className="flex items-center flex-1">
+                        <Link href={`/profile/${user.username}`} className="flex items-center flex-1">
                           <Avatar className="h-12 w-12 mr-3">
-                            <AvatarImage src={user.avatar} alt={user.username} />
+                            <AvatarImage src={formatImageUrl(user.img)} alt={user.username} />
                             <AvatarFallback>{user.username.slice(0, 2).toUpperCase()}</AvatarFallback>
                           </Avatar>
 
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold">{user.username}</p>
-                            <p className="text-sm text-[#737373]">{user.fullName}</p>
+                            <p className="text-sm text-[#737373]">{user.bio || user.fullName}</p>
                           </div>
                         </Link>
 
@@ -263,20 +208,28 @@ export default function SearchPage() {
                 </div>
               )}
 
-              <div className="mt-8">
+              {/* Популярные посты */}
+              <div className="mt-4 md:mt-8">
                 <h2 className="font-semibold text-lg mb-4">Explore</h2>
-                <div className="grid grid-cols-3 gap-1">
-                  {MOCK_POPULAR_POSTS.map((post) => (
-                    <Link key={post.id} href={`/p/${post.id}`} className="relative aspect-square">
-                      <Image
-                        src={formatImageUrl(post.image) || "/placeholder.svg"}
-                        alt=""
-                        fill
-                        className="object-cover"
-                      />
-                    </Link>
-                  ))}
-                </div>
+                {loadingPosts ? (
+                  <div className="grid grid-cols-3 gap-1">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
+                      <Skeleton key={i} className="aspect-square w-full" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-1">
+                    {popularPosts.map((post) => (
+                      <Link key={post.id} href={`/p/${post.slug}`} className="relative aspect-square">
+                        <img
+                          src={formatImageUrl(post.img) || "/placeholder.svg"}
+                          alt={post.title || ""}
+                          className="object-cover w-full h-full"
+                        />
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             </>
           )}

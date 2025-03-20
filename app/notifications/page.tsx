@@ -193,7 +193,7 @@ export default function NotificationsPage() {
     <div className="flex min-h-screen bg-white">
       <Sidebar className="hidden md:flex" />
 
-      <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
+      <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px] pb-16 md:pb-0">
         <div className="mx-auto max-w-2xl py-8 px-4">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold">Notifications</h1>
@@ -239,7 +239,18 @@ export default function NotificationsPage() {
                     </Avatar>
 
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm">{notification.message}</p>
+                      <p className="text-sm">
+                        {notification.initiator && (
+                          <Link
+                            href={`/profile/${notification.initiator.username}`}
+                            className="font-semibold hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {notification.initiator.username}
+                          </Link>
+                        )}{" "}
+                        {notification.message.replace(/^[a-zA-Z0-9_]+ /, "")}
+                      </p>
                       <p className="text-xs text-[#737373] mt-1">
                         {new Date(notification.createdAt).toLocaleDateString()}
                       </p>

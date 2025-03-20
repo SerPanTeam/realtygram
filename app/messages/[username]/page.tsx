@@ -130,7 +130,7 @@ export default function ChatPage({ params }: { params: { username: string } }) {
     <div className="flex min-h-screen bg-white">
       <Sidebar className="hidden md:flex" />
 
-      <div className="flex-1 md:ml-[240px] flex flex-col h-screen">
+      <div className="flex-1 md:ml-[240px] flex flex-col h-screen pb-16 md:pb-0">
         <ChatConversation recipientUsername={username} isMobile={true} />
       </div>
 

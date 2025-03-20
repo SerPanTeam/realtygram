@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { Sidebar } from "@/components/sidebar"
 import { MobileNavigation } from "@/components/mobile-navigation"
@@ -14,6 +13,7 @@ import type { Post } from "@/lib/types"
 import { useAuth } from "@/lib/auth-context"
 import { formatImageUrl } from "@/lib/image-utils"
 import { formatNumber } from "@/lib/utils"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function TrendingPage() {
   const [posts, setPosts] = useState<Post[]>([])
@@ -40,24 +40,36 @@ export default function TrendingPage() {
     fetchPosts()
   }, [user])
 
-  // Форматирование числа лайков и комментариев
-
   return (
     <div className="flex min-h-screen bg-white">
       <Sidebar className="hidden md:flex" />
 
       <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
-        <div className="mx-auto max-w-3xl py-6 px-4">
-          <h1 className="text-2xl font-bold mb-6">Trending</h1>
+        <div className="mx-auto max-w-full md:max-w-3xl py-4 px-3 md:py-6 md:px-4 pb-16 md:pb-4">
+          <h1 className="text-xl md:text-2xl font-bold mb-3 md:mb-6">Trending</h1>
 
-          <p className="text-[#737373] mb-6">See what's trending on RealtyGRAM right now.</p>
+          <p className="text-[#737373] mb-4 md:mb-6 text-sm md:text-base">
+            See what's trending on RealtyGRAM right now.
+          </p>
 
           {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
+            <div className="space-y-4 md:space-y-8">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="border border-[#dbdbdb] rounded-lg overflow-hidden">
+                  <div className="p-3 md:p-4 flex items-center">
+                    <Skeleton className="h-8 w-8 rounded-full mr-3" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                  <Skeleton className="aspect-square w-full" />
+                  <div className="p-3 md:p-4 space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-4 md:space-y-8">
               {posts.map((post) => (
                 <TrendingPostCard key={post.id} post={post} token={user?.token} />
               ))}
@@ -78,8 +90,6 @@ interface TrendingPostCardProps {
 
 function TrendingPostCard({ post, token }: TrendingPostCardProps) {
   const [stats, setStats] = useState({ likes: post.favoritesCount, comments: post.comments?.length || 0 })
-
-  // Обновляем инициализацию состояния liked
   const [liked, setLiked] = useState(post.favorited === true)
   const [likesCount, setLikesCount] = useState(stats.likes)
   const { user } = useAuth()
@@ -137,12 +147,14 @@ function TrendingPostCard({ post, token }: TrendingPostCardProps) {
     }
   }
 
+  const imageUrl = formatImageUrl(post.img)
+
   return (
     <div className="border border-[#dbdbdb] rounded-lg overflow-hidden">
       {/* Шапка поста */}
-      <div className="flex items-center justify-between p-4">
+      <div className="flex items-center justify-between p-3 md:p-4">
         <div className="flex items-center">
-          <Avatar className="h-8 w-8 mr-3">
+          <Avatar className="h-8 w-8 mr-2 md:mr-3">
             <AvatarImage
               src={formatImageUrl(post.author.img) || "/placeholder.svg?height=32&width=32"}
               alt={post.author.username}
@@ -152,14 +164,17 @@ function TrendingPostCard({ post, token }: TrendingPostCardProps) {
 
           <div>
             <div className="flex items-center">
-              <Link href={`/profile/${post.author.username}`} className="font-semibold hover:underline">
+              <Link
+                href={`/profile/${post.author.username}`}
+                className="font-semibold hover:underline text-sm md:text-base"
+              >
                 {post.author.username}
               </Link>
             </div>
           </div>
         </div>
 
-        <Button variant="ghost" size="sm" className="text-[#0095f6]">
+        <Button variant="ghost" size="sm" className="text-[#0095f6] text-xs md:text-sm">
           {post.author.following ? "Following" : "Follow"}
         </Button>
       </div>
@@ -167,24 +182,23 @@ function TrendingPostCard({ post, token }: TrendingPostCardProps) {
       {/* Изображение поста */}
       <div className="relative aspect-square w-full">
         <Link href={`/p/${post.slug}`}>
-          <Image
-            src={formatImageUrl(post.img) || "/placeholder.svg?height=600&width=600"}
+          <img
+            src={imageUrl || "/placeholder.svg"}
             alt={post.title || "Post image"}
-            fill
-            className="object-cover"
+            className="object-cover w-full h-full"
           />
         </Link>
       </div>
 
       {/* Информация о посте */}
-      <div className="p-4">
+      <div className="p-3 md:p-4">
         <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3 md:space-x-4">
             {/* Обновим отображение иконки лайка */}
             <button onClick={handleLike}>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
+                className="h-5 w-5 md:h-6 md:w-6"
                 fill={liked ? "currentColor" : "none"}
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -201,7 +215,7 @@ function TrendingPostCard({ post, token }: TrendingPostCardProps) {
             <button>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
+                className="h-5 w-5 md:h-6 md:w-6"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -217,7 +231,7 @@ function TrendingPostCard({ post, token }: TrendingPostCardProps) {
             <button>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
+                className="h-5 w-5 md:h-6 md:w-6"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -235,7 +249,7 @@ function TrendingPostCard({ post, token }: TrendingPostCardProps) {
           <button>
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
+              className="h-5 w-5 md:h-6 md:w-6"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -252,14 +266,19 @@ function TrendingPostCard({ post, token }: TrendingPostCardProps) {
 
         {/* Обновим отображение количества лайков */}
         <div className="mb-2">
-          <p className="font-medium">{formatNumber(likesCount)} likes</p>
+          <p className="font-medium text-sm md:text-base">{formatNumber(likesCount)} likes</p>
         </div>
 
         <div className="mb-2">
-          <span className="font-medium">{post.author.username}</span> <span>{post.content}</span>
+          <Link href={`/profile/${post.author.username}`} className="font-medium text-sm md:text-base hover:underline">
+            {post.author.username}
+          </Link>{" "}
+          <span className="text-sm md:text-base">
+            {post.content.length > 100 ? `${post.content.substring(0, 100)}...` : post.content}
+          </span>
         </div>
 
-        <Link href={`/p/${post.slug}`} className="text-sm text-[#737373]">
+        <Link href={`/p/${post.slug}`} className="text-xs md:text-sm text-[#737373]">
           View all {formatNumber(stats.comments)} comments
         </Link>
       </div>

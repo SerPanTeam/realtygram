@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Sidebar } from "@/components/sidebar"
@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { ImagePlus, X, Smile, MapPin, Tag } from "lucide-react"
 import { useDropzone } from "react-dropzone"
-import { postApi, uploadApi } from "@/lib/api"
+import { postApi, uploadApi, profileApi } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { toast } from "@/hooks/use-toast"
 import { formatImageUrl } from "@/lib/image-utils"
@@ -26,9 +26,34 @@ export default function CreatePostPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [createdPost, setCreatedPost] = useState<any>(null)
+  const [userProfileImage, setUserProfileImage] = useState<string>("/placeholder.svg")
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const { user } = useAuth()
+
+  // Загружаем актуальные данные пользователя, включая изображение
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (user?.username && user?.token) {
+        try {
+          const { profile } = await profileApi.get(user.username, user.token)
+          if (profile && profile.img) {
+            const formattedImageUrl = formatImageUrl(profile.img)
+            console.log("Fetched user profile image:", formattedImageUrl)
+            setUserProfileImage(formattedImageUrl)
+          } else {
+            console.log("No profile image found in profile data")
+            setUserProfileImage("/placeholder.svg")
+          }
+        } catch (error) {
+          console.error("Error fetching user profile:", error)
+          setUserProfileImage("/placeholder.svg")
+        }
+      }
+    }
+
+    fetchUserProfile()
+  }, [user])
 
   // Check authentication
   if (!user) {
@@ -56,23 +81,21 @@ export default function CreatePostPage() {
       "image/*": [".jpeg", ".jpg", ".png", ".gif"],
     },
     maxFiles: 1,
+    disabled: step !== 1,
   })
 
   // Handle tag addition
-  const handleAddTag = useCallback(() => {
+  const handleAddTag = () => {
     if (tagInput.trim() && !tagList.includes(tagInput.trim())) {
       setTagList([...tagList, tagInput.trim()])
       setTagInput("")
     }
-  }, [tagInput, tagList, setTagList, setTagInput])
+  }
 
   // Handle tag removal
-  const handleRemoveTag = useCallback(
-    (tag: string) => {
-      setTagList(tagList.filter((t) => t !== tag))
-    },
-    [tagList, setTagList],
-  )
+  const handleRemoveTag = (tag: string) => {
+    setTagList(tagList.filter((t) => t !== tag))
+  }
 
   // Handle form submission
   const handleSubmit = async () => {
@@ -167,7 +190,7 @@ export default function CreatePostPage() {
     <div className="flex min-h-screen bg-white">
       <Sidebar className="hidden md:flex" />
 
-      <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
+      <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px] pb-16 md:pb-0">
         {/* Modal for post creation */}
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-[850px] bg-white rounded-xl overflow-hidden">
@@ -236,11 +259,15 @@ export default function CreatePostPage() {
                       <div className="h-full w-full rounded-full bg-white p-[1.5px]">
                         <div className="h-full w-full rounded-full overflow-hidden">
                           <Image
-                            src={formatImageUrl(user.img) || "/placeholder.svg"}
-                            alt={user.username}
+                            src={userProfileImage || "/placeholder.svg"}
+                            alt={user.username || "User"}
                             width={32}
                             height={32}
                             className="object-cover"
+                            onError={(e) => {
+                              console.error("Error loading user image:", e)
+                              ;(e.target as HTMLImageElement).src = "/placeholder.svg"
+                            }}
                           />
                         </div>
                       </div>
