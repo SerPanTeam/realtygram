@@ -20,100 +20,42 @@ interface NotificationsPanelProps {
 
 export function NotificationsPanel({ isOpen, onClose }: NotificationsPanelProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const router = useRouter();
   const isMobile = useMediaQuery("(max-width: 768px)");
-  // 1. Добавим состояние для отслеживания первой загрузки
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
   useOnClickOutside(panelRef, onClose);
-
-  // // 2. Изменим useEffect для загрузки уведомлений
-  // useEffect(() => {
-  //   if (isOpen && user?.token) {
-  //     // Сбрасываем состояние загрузки при каждом открытии панели
-  //     setLoading(true);
-
-  //     fetchNotifications()
-  //       .then(() => {
-  //         // Отмечаем, что первая загрузка завершена
-  //         setInitialLoadComplete(true);
-  //       })
-  //       .finally(() => {
-  //         setLoading(false);
-  //       });
-  //   }
-  // }, [isOpen, user]);
 
   useEffect(() => {
     if (isOpen && user?.token) {
       setLoading(true);
-
-      fetchNotifications()
-        .then(() => {
-          setInitialLoadComplete(true);
-        })
-        .catch((err) => {
-          console.error("Error fetching notifications:", err);
-          setNotifications([]);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
+      fetchNotifications();
     }
-  }, [isOpen, user?.token]); // Обратите внимание на правильное использование зависимостей
-
-  // const fetchNotifications = async () => {
-  //   setLoading(true);
-  //   try {
-  //     const notificationsList = await notificationApi.list(user!.token);
-
-  //     setNotifications(notificationsList);
-
-  //     // Автоматически отмечаем все уведомления как прочитанные при открытии панели
-  //     const unreadNotifications = notificationsList.filter((notification) => !notification.isRead);
-  //     if (unreadNotifications.length > 0) {
-  //       // Отмечаем каждое непрочитанное уведомление как прочитанное
-  //       await Promise.all(
-  //         unreadNotifications.map((notification) => notificationApi.markAsRead(notification.id, user!.token))
-  //       );
-  //     }
-  //   } catch (err) {
-  //     console.error("Error fetching notifications:", err);
-  //     // Если API недоступно, используем пустой массив
-  //     setNotifications([]);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
+  }, [isOpen, user]);
 
   const fetchNotifications = async () => {
     try {
       const notificationsList = await notificationApi.list(user!.token);
-      // Сразу устанавливаем список уведомлений
       setNotifications(notificationsList);
 
-      const unreadNotifications = notificationsList.filter((n) => !n.isRead);
+      // Асинхронно отмечаем все непрочитанные уведомления как прочитанные,
+      // чтобы не блокировать отображение списка
+      const unreadNotifications = notificationsList.filter((notification) => !notification.isRead);
       if (unreadNotifications.length > 0) {
-        // Запускаем отметку как прочитанных асинхронно, не блокируя UI
-        Promise.all(unreadNotifications.map((n) => notificationApi.markAsRead(n.id, user!.token)))
-          .then(() => {
-            // Обновляем локальное состояние, помечая уведомления как прочитанные
-            setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-          })
-          .catch((err) => console.error("Error marking notifications as read:", err));
+        Promise.all(
+          unreadNotifications.map((notification) => notificationApi.markAsRead(notification.id, user!.token))
+        ).catch((err) => console.error("Ошибка при отметке уведомлений как прочитанных:", err));
       }
     } catch (err) {
-      console.error("Error fetching notifications:", err);
+      console.error("Ошибка получения уведомлений:", err);
       setNotifications([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Обновим функцию handleNotificationClick, чтобы использовать initiator
   const handleNotificationClick = async (notification: Notification) => {
     if (!user?.token) return;
 
@@ -125,11 +67,11 @@ export function NotificationsPanel({ isOpen, onClose }: NotificationsPanelProps)
       try {
         await notificationApi.markAsRead(notification.id, user.token);
       } catch (err) {
-        console.error("Error marking notification as read:", err);
+        console.error("Ошибка при отметке уведомления как прочитанного:", err);
       }
     }
 
-    // Перенаправляем на профиль пользователя-инициатора
+    // Перенаправляем на профиль инициатора уведомления
     if (notification.initiator) {
       router.push(`/profile/${notification.initiator.username}`);
     }
@@ -154,23 +96,23 @@ export function NotificationsPanel({ isOpen, onClose }: NotificationsPanelProps)
             <h2 className="font-semibold text-lg">Notifications</h2>
           </div>
 
-          {loading && !initialLoadComplete ? (
-            <div className="flex justify-center items-center h-40">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-black"></div>
-            </div>
-          ) : (
-            <div className="overflow-y-auto flex-1">
-              {notifications.length === 0 ? (
-                <div className="p-6 text-center">
-                  <p className="text-[#737373]">No notifications yet</p>
-                </div>
-              ) : (
-                notifications.map((notification) => (
-                  <Link
+          {/* Убран блок "New" */}
+          <div className="overflow-y-auto flex-1">
+            {loading ? (
+              <div className="flex justify-center items-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-black"></div>
+              </div>
+            ) : notifications.length === 0 ? (
+              <div className="p-6 text-center">
+                <p className="text-[#737373]">No notifications yet</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-[#dbdbdb]">
+                {notifications.map((notification) => (
+                  <div
                     key={notification.id}
-                    href={notification.initiator ? `/profile/${notification.initiator.username}` : "#"}
+                    className="flex items-center p-4 hover:bg-gray-50 cursor-pointer"
                     onClick={() => handleNotificationClick(notification)}
-                    className="flex items-center p-4 hover:bg-gray-50 border-b border-[#dbdbdb]"
                   >
                     <Avatar className="h-10 w-10 mr-3">
                       <AvatarImage
@@ -184,17 +126,23 @@ export function NotificationsPanel({ isOpen, onClose }: NotificationsPanelProps)
                     <div className="flex-1">
                       <p className="text-sm">
                         {notification.initiator && (
-                          <span className="font-semibold hover:underline">{notification.initiator.username}</span>
+                          <span className="font-semibold">{notification.initiator.username}</span>
                         )}{" "}
                         {notification.message.replace(/^[a-zA-Z0-9_]+ /, "")}
                       </p>
                       <p className="text-xs text-[#737373]">{new Date(notification.createdAt).toLocaleDateString()}</p>
                     </div>
-                  </Link>
-                ))
-              )}
-            </div>
-          )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="p-3 text-center border-t border-[#dbdbdb]">
+            <Link href="/notifications" className="text-sm text-[#0095f6] font-medium" onClick={onClose}>
+              See All Notifications
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -210,22 +158,19 @@ export function NotificationsPanel({ isOpen, onClose }: NotificationsPanelProps)
         <h2 className="font-semibold text-lg">Notifications</h2>
       </div>
 
-      <div className="p-4 border-b border-[#dbdbdb]">
-        <h3 className="font-medium text-sm">New</h3>
-      </div>
-
-      {loading && !initialLoadComplete ? (
-        <div className="flex justify-center items-center h-40">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-black"></div>
-        </div>
-      ) : (
-        <div className="max-h-[calc(100vh-120px)] overflow-y-auto">
-          {notifications.length === 0 ? (
-            <div className="p-6 text-center">
-              <p className="text-[#737373]">No notifications yet</p>
-            </div>
-          ) : (
-            notifications.map((notification) => (
+      {/* Убран блок "New" */}
+      <div className="max-h-[calc(100vh-180px)] overflow-y-auto">
+        {loading ? (
+          <div className="flex justify-center items-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-black"></div>
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="p-6 text-center">
+            <p className="text-[#737373]">No notifications yet</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-[#dbdbdb]">
+            {notifications.map((notification) => (
               <div
                 key={notification.id}
                 className={`flex items-center p-4 hover:bg-gray-50 ${
@@ -253,12 +198,12 @@ export function NotificationsPanel({ isOpen, onClose }: NotificationsPanelProps)
                   </p>
                 </div>
               </div>
-            ))
-          )}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
 
-      <div className="p-3 text-center border-t border-[#dbdbdb] mt-auto">
+      <div className="p-3 text-center border-t border-[#dbdbdb] absolute bottom-0 left-0 right-0 bg-white">
         <Link href="/notifications" className="text-sm text-[#0095f6] font-medium" onClick={onClose}>
           See All Notifications
         </Link>

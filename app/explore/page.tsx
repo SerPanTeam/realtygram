@@ -1,17 +1,17 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { Sidebar } from "@/components/sidebar"
-import { MobileNavigation } from "@/components/mobile-navigation"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { postApi } from "@/lib/api"
-import type { Post } from "@/lib/types"
-import { useAuth } from "@/lib/auth-context"
-import { formatImageUrl } from "@/lib/image-utils"
-import { Skeleton } from "@/components/ui/skeleton"
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { Sidebar } from "@/components/sidebar";
+import { MobileNavigation } from "@/components/mobile-navigation";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { postApi } from "@/lib/api";
+import type { Post } from "@/lib/types";
+import { useAuth } from "@/lib/auth-context";
+import { formatImageUrl } from "@/lib/image-utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Categories for tabs
 const CATEGORIES = [
@@ -23,41 +23,41 @@ const CATEGORIES = [
   { id: "luxury", label: "Luxury" },
   { id: "investment", label: "Investment" },
   { id: "foreclosure", label: "Foreclosure" },
-]
+];
 
 export default function ExplorePage() {
-  const [posts, setPosts] = useState<Post[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedCategory, setSelectedCategory] = useState("all")
-  const { user } = useAuth()
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchPosts = async () => {
-      setLoading(true)
+      setLoading(true);
       try {
         // Get all posts, without filtering by follows
-        const { posts } = await postApi.list({}, user?.token)
-        setPosts(posts)
+        const { posts } = await postApi.list({}, user?.token);
+        setPosts(posts);
       } catch (err) {
-        console.error("Error fetching posts:", err)
+        console.error("Error fetching posts:", err);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchPosts()
-  }, [user])
+    fetchPosts();
+  }, [user]);
 
   // Filter posts by category
   const getFilteredPosts = () => {
-    if (selectedCategory === "all") return posts
+    if (selectedCategory === "all") return posts;
 
     // In a real app, we would filter by tags
     // For demo, just return all posts
-    return posts
-  }
+    return posts;
+  };
 
-  const filteredPosts = getFilteredPosts()
+  const filteredPosts = getFilteredPosts();
 
   return (
     <div className="flex min-h-screen bg-white">
@@ -108,82 +108,82 @@ export default function ExplorePage() {
 
       <MobileNavigation className="md:hidden" />
     </div>
-  )
+  );
 }
 
 interface ExplorePostCardProps {
-  post: Post
-  token?: string
+  post: Post;
+  token?: string;
 }
 
 function ExplorePostCard({ post, token }: ExplorePostCardProps) {
-  const [isHovered, setIsHovered] = useState(false)
-  const [isTouched, setIsTouched] = useState(false)
-  const [stats, setStats] = useState({ likes: post.favoritesCount, comments: post.comments?.length || 0 })
-  const [liked, setLiked] = useState(post.favorited === true)
-  const [likesCount, setLikesCount] = useState(stats.likes)
-  const { user } = useAuth()
+  const [isHovered, setIsHovered] = useState(false);
+  const [isTouched, setIsTouched] = useState(false);
+  const [stats, setStats] = useState({ likes: post.favoritesCount, comments: post.comments?.length || 0 });
+  const [liked, setLiked] = useState(post.favorited === true);
+  const [likesCount, setLikesCount] = useState(stats.likes);
+  const { user } = useAuth();
 
   // Получаем актуальную статистику поста при монтировании компонента
   useEffect(() => {
     const fetchPostStats = async () => {
-      if (!token) return
+      if (!token) return;
 
       try {
-        const postStats = await postApi.getStats(post.slug, token)
-        setStats(postStats)
-        setLikesCount(postStats.likes)
+        const postStats = await postApi.getStats(post.slug, token);
+        setStats(postStats);
+        setLikesCount(postStats.likes);
       } catch (error) {
-        console.error("Error fetching post stats:", error)
+        console.error("Error fetching post stats:", error);
         // Если не удалось получить статистику, используем данные из поста
         setStats({
           likes: post.favoritesCount,
           comments: post.comments?.length || 0,
-        })
-        setLikesCount(post.favoritesCount)
+        });
+        setLikesCount(post.favoritesCount);
       }
-    }
+    };
 
-    fetchPostStats()
+    fetchPostStats();
 
     // Обновляем состояние liked при изменении post.favorited
-    setLiked(post.favorited === true)
-  }, [post.slug, post.favoritesCount, post.comments?.length, post.favorited, token])
+    setLiked(post.favorited === true);
+  }, [post.slug, post.favoritesCount, post.comments?.length, post.favorited, token]);
 
   // Отдельный обработчик для лайка
   const handleLike = async (e: React.MouseEvent) => {
-    e.preventDefault() // Предотвращаем переход по ссылке
-    e.stopPropagation() // Останавливаем всплытие события
+    e.preventDefault(); // Предотвращаем переход по ссылке
+    e.stopPropagation(); // Останавливаем всплытие события
 
-    if (!user?.token) return
+    if (!user?.token) return;
 
     try {
       // Оптимистично обновляем UI
-      setLiked(!liked)
-      const newLikesCount = liked ? likesCount - 1 : likesCount + 1
-      setLikesCount(newLikesCount)
+      setLiked(!liked);
+      const newLikesCount = liked ? likesCount - 1 : likesCount + 1;
+      setLikesCount(newLikesCount);
 
       // Отправляем запрос на сервер
       if (liked) {
-        await postApi.unfavorite(post.slug, user.token)
+        await postApi.unfavorite(post.slug, user.token);
       } else {
-        await postApi.favorite(post.slug, user.token)
+        await postApi.favorite(post.slug, user.token);
       }
     } catch (err) {
-      console.error("Error toggling like:", err)
+      console.error("Error toggling like:", err);
       // В случае ошибки возвращаем предыдущее состояние
-      setLiked(liked)
-      setLikesCount(likesCount)
+      setLiked(liked);
+      setLikesCount(likesCount);
     }
-  }
+  };
 
   // Обработчик для мобильных устройств
   const handleTouch = (e: React.TouchEvent) => {
-    e.preventDefault()
-    setIsTouched(!isTouched)
-  }
+    e.preventDefault();
+    setIsTouched(!isTouched);
+  };
 
-  const imageUrl = formatImageUrl(post.img)
+  const imageUrl = formatImageUrl(post.img);
 
   return (
     <Link
@@ -245,6 +245,5 @@ function ExplorePostCard({ post, token }: ExplorePostCardProps) {
         </div>
       )}
     </Link>
-  )
+  );
 }
-

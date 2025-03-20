@@ -5,14 +5,7 @@ import type React from "react";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Heart,
-  MessageCircle,
-  Send,
-  Bookmark,
-  MoreHorizontal,
-  Smile,
-} from "lucide-react";
+import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Smile } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,12 +34,9 @@ export default function PostPage({ params }: { params: { slug: string } }) {
 
   async function checkIfPostLiked(userId: number, postId: number) {
     try {
-      const response = await axios.get(
-        "https://api.panchenko.work/posts/liked",
-        {
-          params: { userId, postId },
-        }
-      );
+      const response = await axios.get("https://api.panchenko.work/posts/liked", {
+        params: { userId, postId },
+      });
       console.log(response, userId, postId);
       // Предполагаем, что сервер возвращает объект { liked: true/false }
       return response.data.liked === true;
@@ -62,6 +52,7 @@ export default function PostPage({ params }: { params: { slug: string } }) {
       try {
         // Получаем пост без токена, если пользователь не авторизован
         const { post } = await postApi.get(slug, user?.token);
+        console.log(post);
         setPost(post);
         setLikesCount(post.favoritesCount);
         console.log(post);
@@ -133,11 +124,7 @@ export default function PostPage({ params }: { params: { slug: string } }) {
     if (!comment.trim() || !post) return;
 
     try {
-      const newComment = await commentApi.create(
-        post.slug,
-        { body: comment },
-        user.token
-      );
+      const newComment = await commentApi.create(post.slug, { body: comment }, user.token);
       setComments([...comments, newComment]);
       setComment("");
 
@@ -189,9 +176,7 @@ export default function PostPage({ params }: { params: { slug: string } }) {
         <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
           <div className="flex flex-col justify-center items-center h-screen pb-16 md:pb-0">
             <h1 className="text-2xl font-bold mb-4">Post Not Found</h1>
-            <p className="text-[#737373] mb-6">
-              The post you are looking for does not exist.
-            </p>
+            <p className="text-[#737373] mb-6">The post you are looking for does not exist.</p>
             <Button onClick={() => router.push("/feed")}>Go to Feed</Button>
           </div>
         </main>
@@ -221,23 +206,13 @@ export default function PostPage({ params }: { params: { slug: string } }) {
               {/* Шапка поста */}
               <div className="flex items-center justify-between p-3 border-b border-[#dbdbdb]">
                 <div className="flex items-center">
-                  <Link
-                    href={`/profile/${post.author.username}`}
-                    className="flex items-center"
-                  >
+                  <Link href={`/profile/${post.author.username}`} className="flex items-center">
                     <Avatar className="h-8 w-8 mr-2">
-                      <AvatarImage
-                        src={formatImageUrl(post.author.img)}
-                        alt={post.author.username}
-                      />
-                      <AvatarFallback>
-                        {post.author.username.slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
+                      <AvatarImage src={formatImageUrl(post.author.img)} alt={post.author.username} />
+                      <AvatarFallback>{post.author.username.slice(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="flex items-center">
-                      <span className="font-semibold text-sm">
-                        {post.author.username}
-                      </span>
+                      <span className="font-semibold text-sm">{post.author.username}</span>
                     </div>
                   </Link>
                 </div>
@@ -252,12 +227,7 @@ export default function PostPage({ params }: { params: { slug: string } }) {
                       {isFollowing ? "Following" : "Follow"}
                     </Button>
                   )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setShowOptionsMenu(true)}
-                  >
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowOptionsMenu(true)}>
                     <MoreHorizontal className="h-5 w-5" />
                   </Button>
                 </div>
@@ -268,26 +238,15 @@ export default function PostPage({ params }: { params: { slug: string } }) {
                 {/* Подпись автора */}
                 <div className="flex items-start p-3">
                   <Avatar className="h-8 w-8 mr-3 mt-1">
-                    <AvatarImage
-                      src={formatImageUrl(post.author.img)}
-                      alt={post.author.username}
-                    />
-                    <AvatarFallback>
-                      {post.author.username.slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
+                    <AvatarImage src={formatImageUrl(post.author.img)} alt={post.author.username} />
+                    <AvatarFallback>{post.author.username.slice(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div>
                     <div>
-                      <span className="font-semibold text-sm">
-                        {post.author.username}
-                      </span>{" "}
-                      <span className="text-sm whitespace-pre-line">
-                        {post.content}
-                      </span>
+                      <span className="font-semibold text-sm">{post.author.username}</span>{" "}
+                      <span className="text-sm whitespace-pre-line">{post.content}</span>
                     </div>
-                    <p className="text-xs text-[#737373] mt-1">
-                      {new Date(post.createdAt).toLocaleDateString()}
-                    </p>
+                    <p className="text-xs text-[#737373] mt-1">{new Date(post.createdAt).toLocaleDateString()}</p>
                   </div>
                 </div>
 
@@ -297,20 +256,13 @@ export default function PostPage({ params }: { params: { slug: string } }) {
                     comments.map((comment) => (
                       <div key={comment.id} className="flex items-start">
                         <Avatar className="h-8 w-8 mr-3 mt-1">
-                          <AvatarImage
-                            src={formatImageUrl(comment.author.img)}
-                            alt={comment.author.username}
-                          />
-                          <AvatarFallback>
-                            {comment.author.username.slice(0, 2).toUpperCase()}
-                          </AvatarFallback>
+                          <AvatarImage src={formatImageUrl(comment.author.img)} alt={comment.author.username} />
+                          <AvatarFallback>{comment.author.username.slice(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
                           <div className="flex items-center">
                             <Link
-                              href={`/profile/${encodeURIComponent(
-                                comment.author.username
-                              )}`}
+                              href={`/profile/${encodeURIComponent(comment.author.username)}`}
                               className="font-semibold text-sm mr-1 hover:underline"
                             >
                               {comment.author.username}
@@ -318,18 +270,14 @@ export default function PostPage({ params }: { params: { slug: string } }) {
                             <span className="text-sm">{comment.body}</span>
                           </div>
                           <div className="flex items-center mt-1 space-x-3 text-xs text-[#737373]">
-                            <span>
-                              {new Date(comment.createdAt).toLocaleDateString()}
-                            </span>
+                            <span>{new Date(comment.createdAt).toLocaleDateString()}</span>
                             {/* {user && <button className="font-semibold">Reply</button>} */}
                           </div>
                         </div>
                       </div>
                     ))
                   ) : (
-                    <div className="p-3 text-center text-[#737373]">
-                      No comments yet. Be the first to comment!
-                    </div>
+                    <div className="p-3 text-center text-[#737373]">No comments yet. Be the first to comment!</div>
                   )}
                 </div>
               </div>
@@ -339,11 +287,7 @@ export default function PostPage({ params }: { params: { slug: string } }) {
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-4">
                     <button onClick={handleLike}>
-                      <Heart
-                        className={`h-6 w-6 ${
-                          liked ? "fill-red-500 text-red-500" : ""
-                        }`}
-                      />
+                      <Heart className={`h-6 w-6 ${liked ? "fill-red-500 text-red-500" : ""}`} />
                     </button>
                     <button onClick={handleCommentFocus}>
                       <MessageCircle className="h-6 w-6" />
@@ -359,9 +303,7 @@ export default function PostPage({ params }: { params: { slug: string } }) {
 
                 {/* Лайки */}
                 <div className="mb-1">
-                  <p className="font-semibold text-sm">
-                    {formatNumber(likesCount)} likes
-                  </p>
+                  <p className="font-semibold text-sm">{formatNumber(likesCount)} likes</p>
                 </div>
 
                 {/* Дата */}
@@ -372,10 +314,7 @@ export default function PostPage({ params }: { params: { slug: string } }) {
                 </div>
 
                 {/* Форма комментария */}
-                <form
-                  onSubmit={handleComment}
-                  className="flex items-center border-t border-[#dbdbdb] pt-3"
-                >
+                <form onSubmit={handleComment} className="flex items-center border-t border-[#dbdbdb] pt-3">
                   <button type="button" className="mr-2">
                     <Smile className="h-6 w-6 text-[#262626]" />
                   </button>
@@ -393,9 +332,7 @@ export default function PostPage({ params }: { params: { slug: string } }) {
                     variant="ghost"
                     size="sm"
                     className={`text-[#0095f6] font-semibold text-sm ${
-                      !comment.trim() || !user
-                        ? "opacity-50 cursor-not-allowed"
-                        : ""
+                      !comment.trim() || !user ? "opacity-50 cursor-not-allowed" : ""
                     }`}
                     disabled={!comment.trim() || !user}
                   >
