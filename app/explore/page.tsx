@@ -1,7 +1,5 @@
 "use client";
 
-import type React from "react";
-
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Sidebar } from "@/components/sidebar";
@@ -13,7 +11,7 @@ import { useAuth } from "@/lib/auth-context";
 import { formatImageUrl } from "@/lib/image-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Categories for tabs
+// Категории для табов
 const CATEGORIES = [
   { id: "all", label: "All" },
   { id: "residential", label: "Residential" },
@@ -35,7 +33,7 @@ export default function ExplorePage() {
     const fetchPosts = async () => {
       setLoading(true);
       try {
-        // Get all posts, without filtering by follows
+        // Получаем все посты
         const { posts } = await postApi.list({}, user?.token);
         setPosts(posts);
       } catch (err) {
@@ -48,12 +46,9 @@ export default function ExplorePage() {
     fetchPosts();
   }, [user]);
 
-  // Filter posts by category
+  // Фильтрация постов по категории (в данном примере просто возвращаем все)
   const getFilteredPosts = () => {
     if (selectedCategory === "all") return posts;
-
-    // In a real app, we would filter by tags
-    // For demo, just return all posts
     return posts;
   };
 
@@ -62,12 +57,11 @@ export default function ExplorePage() {
   return (
     <div className="flex min-h-screen bg-white">
       <Sidebar className="hidden md:flex" />
-
       <main className="flex-1 border-l border-[#dbdbdb] md:ml-[240px]">
         <div className="mx-auto max-w-full md:max-w-7xl py-4 px-3 md:py-6 md:px-4 pb-16 md:pb-4">
           <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Explore</h1>
 
-          {/* Categories - Scrollable on mobile */}
+          {/* Категории - скролл на мобильных устройствах */}
           <div className="mb-4 md:mb-6 overflow-x-auto hide-scrollbar px-3 -mx-3 w-screen md:w-auto">
             <Tabs defaultValue="all" onValueChange={setSelectedCategory}>
               <TabsList className="bg-transparent h-auto p-0 w-full">
@@ -87,15 +81,18 @@ export default function ExplorePage() {
               {CATEGORIES.map((category) => (
                 <TabsContent key={category.id} value={category.id} className="mt-4 md:mt-6">
                   {loading ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
+                    <div className="columns-2 md:columns-3 gap-2">
                       {[1, 2, 3, 4, 5, 6].map((i) => (
-                        <Skeleton key={i} className="aspect-square w-full" />
+                        <Skeleton key={i} className="mb-4 break-inside-avoid aspect-[3/4] w-full" />
                       ))}
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
+                    // Используем CSS columns для masonry-эффекта
+                    <div className="columns-2 md:columns-3 gap-2">
                       {filteredPosts.map((post) => (
-                        <ExplorePostCard key={post.id} post={post} token={user?.token} />
+                        <div key={post.id} className="mb-4 break-inside-avoid">
+                          <ExplorePostCard post={post} token={user?.token} />
+                        </div>
                       ))}
                     </div>
                   )}
@@ -105,7 +102,6 @@ export default function ExplorePage() {
           </div>
         </div>
       </main>
-
       <MobileNavigation className="md:hidden" />
     </div>
   );
@@ -124,18 +120,15 @@ function ExplorePostCard({ post, token }: ExplorePostCardProps) {
   const [likesCount, setLikesCount] = useState(stats.likes);
   const { user } = useAuth();
 
-  // Получаем актуальную статистику поста при монтировании компонента
   useEffect(() => {
     const fetchPostStats = async () => {
       if (!token) return;
-
       try {
         const postStats = await postApi.getStats(post.slug, token);
         setStats(postStats);
         setLikesCount(postStats.likes);
       } catch (error) {
         console.error("Error fetching post stats:", error);
-        // Если не удалось получить статистику, используем данные из поста
         setStats({
           likes: post.favoritesCount,
           comments: post.comments?.length || 0,
@@ -145,25 +138,18 @@ function ExplorePostCard({ post, token }: ExplorePostCardProps) {
     };
 
     fetchPostStats();
-
-    // Обновляем состояние liked при изменении post.favorited
     setLiked(post.favorited === true);
   }, [post.slug, post.favoritesCount, post.comments?.length, post.favorited, token]);
 
-  // Отдельный обработчик для лайка
   const handleLike = async (e: React.MouseEvent) => {
-    e.preventDefault(); // Предотвращаем переход по ссылке
-    e.stopPropagation(); // Останавливаем всплытие события
-
+    e.preventDefault();
+    e.stopPropagation();
     if (!user?.token) return;
 
     try {
-      // Оптимистично обновляем UI
       setLiked(!liked);
       const newLikesCount = liked ? likesCount - 1 : likesCount + 1;
       setLikesCount(newLikesCount);
-
-      // Отправляем запрос на сервер
       if (liked) {
         await postApi.unfavorite(post.slug, user.token);
       } else {
@@ -171,13 +157,11 @@ function ExplorePostCard({ post, token }: ExplorePostCardProps) {
       }
     } catch (err) {
       console.error("Error toggling like:", err);
-      // В случае ошибки возвращаем предыдущее состояние
       setLiked(liked);
       setLikesCount(likesCount);
     }
   };
 
-  // Обработчик для мобильных устройств
   const handleTouch = (e: React.TouchEvent) => {
     e.preventDefault();
     setIsTouched(!isTouched);
@@ -188,7 +172,7 @@ function ExplorePostCard({ post, token }: ExplorePostCardProps) {
   return (
     <Link
       href={`/p/${post.slug}`}
-      className="relative aspect-square block overflow-hidden"
+      className="block overflow-hidden rounded relative"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onTouchStart={handleTouch}
@@ -196,14 +180,11 @@ function ExplorePostCard({ post, token }: ExplorePostCardProps) {
       <img
         src={imageUrl || "/placeholder.svg"}
         alt={post.title || "Post image"}
-        className="object-cover w-full h-full transition-transform duration-300 ease-in-out hover:scale-105"
+        className="object-cover w-full transition-transform duration-300 ease-in-out hover:scale-105"
       />
-
-      {/* Overlay with info on hover or touch */}
       {(isHovered || isTouched) && (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center text-white">
           <div className="flex items-center space-x-4">
-            {/* Обновим отображение иконки лайка в оверлее при наведении */}
             <div className="flex items-center">
               <button onClick={handleLike} className="flex items-center">
                 <svg

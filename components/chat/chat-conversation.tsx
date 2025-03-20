@@ -1,77 +1,77 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect, useRef, useCallback } from "react"
-import { useRouter } from "next/navigation"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { ArrowLeft, Send, RefreshCw, X, Download } from "lucide-react"
-import { formatImageUrl } from "@/lib/image-utils"
-import { useAuth } from "@/lib/auth-context"
-import { profileApi } from "@/lib/api"
-import { chatService } from "@/lib/chat-service"
-import type { Profile, ChatMessage } from "@/lib/types"
-import { cn } from "@/lib/utils"
-import { toast } from "@/hooks/use-toast"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Skeleton } from "@/components/ui/skeleton"
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ArrowLeft, Send, RefreshCw, X, Download } from "lucide-react";
+import { formatImageUrl } from "@/lib/image-utils";
+import { useAuth } from "@/lib/auth-context";
+import { profileApi } from "@/lib/api";
+import { chatService } from "@/lib/chat-service";
+import type { Profile, ChatMessage } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ChatConversationProps {
-  recipientUsername: string
-  onBack?: () => void
-  isMobile?: boolean
+  recipientUsername: string;
+  onBack?: () => void;
+  isMobile?: boolean;
 }
 
 export function ChatConversation({ recipientUsername, onBack, isMobile = false }: ChatConversationProps) {
-  const [recipient, setRecipient] = useState<Profile | null>(null)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [newMessage, setNewMessage] = useState("")
-  const [loading, setLoading] = useState(true)
-  const [sending, setSending] = useState(false)
-  const [connected, setConnected] = useState(false)
-  const [fetchingMessages, setFetchingMessages] = useState(false)
-  const [accessDenied, setAccessDenied] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const router = useRouter()
-  const { user } = useAuth()
-  const [roomId, setRoomId] = useState<string>("")
-  const messagesRef = useRef<ChatMessage[]>([]) // Reference to keep track of messages
+  const [recipient, setRecipient] = useState<Profile | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [fetchingMessages, setFetchingMessages] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+  const { user } = useAuth();
+  const [roomId, setRoomId] = useState<string>("");
+  const messagesRef = useRef<ChatMessage[]>([]); // Reference to keep track of messages
 
   // Load recipient profile
   useEffect(() => {
     const loadRecipient = async () => {
-      if (!user?.token) return
+      if (!user?.token) return;
 
-      setLoading(true)
+      setLoading(true);
       try {
         // Пробуем получить профиль по имени пользователя
         try {
-          const { profile } = await profileApi.get(recipientUsername, user.token)
-          setRecipient(profile)
+          const { profile } = await profileApi.get(recipientUsername, user.token);
+          setRecipient(profile);
 
           // Generate room ID once we have both users
           if (user && profile) {
-            const newRoomId = chatService.constructor.generateRoomId(user.id, profile.id)
+            const newRoomId = chatService.constructor.generateRoomId(user.id, profile.id);
 
             // Проверяем, является ли пользователь участником переписки
             if (!chatService.isUserParticipant(user.id, newRoomId)) {
-              console.error("Access denied: User is not a participant of this conversation")
-              setAccessDenied(true)
-              setLoading(false)
-              return
+              console.error("Access denied: User is not a participant of this conversation");
+              setAccessDenied(true);
+              setLoading(false);
+              return;
             }
 
-            setRoomId(newRoomId)
+            setRoomId(newRoomId);
 
             // Установим ID текущего пользователя и токен в chatService
-            chatService.setCurrentUser(user.id)
-            chatService.setToken(user.token)
+            chatService.setCurrentUser(user.id);
+            chatService.setToken(user.token);
           }
         } catch (error) {
-          console.error("Error loading recipient profile:", error)
+          console.error("Error loading recipient profile:", error);
 
           // Если не удалось получить профиль, создаем базовый профиль
           // Это позволит продолжить работу чата даже без полных данных профиля
@@ -81,8 +81,8 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
             bio: "",
             img: "",
             following: false,
-          }
-          setRecipient(basicProfile)
+          };
+          setRecipient(basicProfile);
 
           // Пробуем получить ID пользователя через поиск
           try {
@@ -93,88 +93,88 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
                   Authorization: `Bearer ${user.token}`,
                   "Content-Type": "application/json",
                 },
-              },
-            )
+              }
+            );
 
             if (response.ok) {
-              const data = await response.json()
+              const data = await response.json();
               if (data.users && data.users.length > 0) {
-                const foundUser = data.users.find((u: any) => u.username === recipientUsername)
+                const foundUser = data.users.find((u: any) => u.username === recipientUsername);
                 if (foundUser) {
-                  setRecipient(foundUser)
+                  setRecipient(foundUser);
 
                   // Generate room ID with the found user
-                  const newRoomId = chatService.constructor.generateRoomId(user.id, foundUser.id)
+                  const newRoomId = chatService.constructor.generateRoomId(user.id, foundUser.id);
 
                   // Проверяем, является ли пользователь участником переписки
                   if (!chatService.isUserParticipant(user.id, newRoomId)) {
-                    console.error("Access denied: User is not a participant of this conversation")
-                    setAccessDenied(true)
-                    setLoading(false)
-                    return
+                    console.error("Access denied: User is not a participant of this conversation");
+                    setAccessDenied(true);
+                    setLoading(false);
+                    return;
                   }
 
-                  setRoomId(newRoomId)
+                  setRoomId(newRoomId);
                 }
               }
             }
           } catch (searchError) {
-            console.error("Error searching for user:", searchError)
+            console.error("Error searching for user:", searchError);
           }
 
           // Если не удалось найти пользователя, создаем временный roomId
           if (!roomId) {
             // Используем username как временный ID
-            const tempId = recipientUsername.charCodeAt(0) * 1000 + recipientUsername.length
-            const newRoomId = chatService.constructor.generateRoomId(user.id, tempId)
+            const tempId = recipientUsername.charCodeAt(0) * 1000 + recipientUsername.length;
+            const newRoomId = chatService.constructor.generateRoomId(user.id, tempId);
 
             // Проверяем, является ли пользователь участником переписки
             if (!chatService.isUserParticipant(user.id, newRoomId)) {
-              console.error("Access denied: User is not a participant of this conversation")
-              setAccessDenied(true)
-              setLoading(false)
-              return
+              console.error("Access denied: User is not a participant of this conversation");
+              setAccessDenied(true);
+              setLoading(false);
+              return;
             }
 
-            setRoomId(newRoomId)
+            setRoomId(newRoomId);
           }
         }
 
         // Установим ID текущего пользователя и токен в chatService
-        chatService.setCurrentUser(user.id)
-        chatService.setToken(user.token)
+        chatService.setCurrentUser(user.id);
+        chatService.setToken(user.token);
       } catch (error) {
-        console.error("Error in loadRecipient:", error)
+        console.error("Error in loadRecipient:", error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    loadRecipient()
-  }, [recipientUsername, user])
+    loadRecipient();
+  }, [recipientUsername, user]);
 
   // Connect to chat service and join room
   useEffect(() => {
-    if (!user || !roomId || accessDenied) return
+    if (!user || !roomId || accessDenied) return;
 
-    let mounted = true
-    const chatInitialized = { current: false }
+    let mounted = true;
+    const chatInitialized = { current: false };
 
     const initializeChat = async () => {
       try {
         // Проверка доступа: убедимся, что текущий пользователь является участником переписки
         if (!chatService.isUserParticipant(user.id, roomId)) {
-          console.error("Access denied: User is not a participant of this conversation")
-          setAccessDenied(true)
-          return
+          console.error("Access denied: User is not a participant of this conversation");
+          setAccessDenied(true);
+          return;
         }
 
         // Connect to chat service
         await chatService.connectToSocket(roomId, (message) => {
-          if (!mounted) return
+          if (!mounted) return;
 
           // Only process messages for this room
-          if (message.roomId !== roomId) return
+          if (message.roomId !== roomId) return;
 
           // Use functional update to ensure atomic state updates
           setMessages((prevMessages) => {
@@ -187,31 +187,31 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
                 (m.content === message.content &&
                   m.senderId === message.senderId &&
                   m.recipientId === message.recipientId &&
-                  m.pending === true),
-            )
+                  m.pending === true)
+            );
 
             // Если нашли ожидающее сообщение, обновляем его статус
             if (pendingIndex >= 0) {
-              const newMessages = [...prevMessages]
+              const newMessages = [...prevMessages];
               newMessages[pendingIndex] = {
                 ...message,
                 pending: false,
-              }
-              messagesRef.current = newMessages
+              };
+              messagesRef.current = newMessages;
 
               // Сохраняем в localStorage
-              chatService.saveMessagesToLocalStorage(roomId, newMessages)
+              chatService.saveMessagesToLocalStorage(roomId, newMessages);
 
-              return newMessages
+              return newMessages;
             }
 
             // Проверяем на дубликаты
             const isDuplicate = prevMessages.some((m) => {
               // Проверяем по ID
-              if (message.id && m.id === message.id) return true
+              if (message.id && m.id === message.id) return true;
 
               // Проверяем по clientMessageId
-              if (message.clientMessageId && m.clientMessageId === message.clientMessageId) return true
+              if (message.clientMessageId && m.clientMessageId === message.clientMessageId) return true;
 
               // Проверяем по содержимому, отправителю/получателю и примерному времени
               if (
@@ -219,50 +219,50 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
                 m.senderId === message.senderId &&
                 m.recipientId === message.recipientId
               ) {
-                const timeDiff = Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime())
-                if (timeDiff < 5000) return true
+                const timeDiff = Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime());
+                if (timeDiff < 5000) return true;
               }
 
-              return false
-            })
+              return false;
+            });
 
             // Если дубликат, не добавляем
             if (isDuplicate) {
-              return prevMessages
+              return prevMessages;
             }
 
             // Добавляем новое сообщение
-            const newMessages = [...prevMessages, message]
-            messagesRef.current = newMessages
+            const newMessages = [...prevMessages, message];
+            messagesRef.current = newMessages;
 
             // Сохраняем в localStorage
-            chatService.saveMessagesToLocalStorage(roomId, newMessages)
+            chatService.saveMessagesToLocalStorage(roomId, newMessages);
 
-            return newMessages
-          })
-        })
+            return newMessages;
+          });
+        });
 
-        if (!mounted) return
+        if (!mounted) return;
 
         // Set connection status
-        setConnected(true)
+        setConnected(true);
 
         // Join the room
-        chatInitialized.current = true
+        chatInitialized.current = true;
 
         // Explicitly request message history from the new REST API endpoint
         // Fetch messages from the API
-        const apiMessages = await chatService.fetchMessagesFromAPI(roomId)
+        const apiMessages = await chatService.fetchMessagesFromAPI(roomId);
 
         if (apiMessages && apiMessages.length > 0) {
           // Нормализуем сообщения
           const normalizedMessages = apiMessages.map((message) => {
             // Проверяем и исправляем senderId и recipientId
             if (!message.senderId && message.sender) {
-              message.senderId = message.sender.id
+              message.senderId = message.sender.id;
             }
             if (!message.recipientId && message.recipient) {
-              message.recipientId = message.recipient.id
+              message.recipientId = message.recipient.id;
             }
 
             // Убеждаемся, что roomId установлен
@@ -272,19 +272,19 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
               // Преобразуем senderId и recipientId в числа
               senderId: Number(message.senderId),
               recipientId: Number(message.recipientId),
-            }
-          })
+            };
+          });
 
           // Удаляем дубликаты
-          const uniqueMessages = removeDuplicates(normalizedMessages)
-          setMessages(uniqueMessages)
-          messagesRef.current = uniqueMessages
+          const uniqueMessages = removeDuplicates(normalizedMessages);
+          setMessages(uniqueMessages);
+          messagesRef.current = uniqueMessages;
 
           // Сохраняем в localStorage
-          chatService.saveMessagesToLocalStorage(roomId, uniqueMessages)
+          chatService.saveMessagesToLocalStorage(roomId, uniqueMessages);
         } else {
           // If no messages from API, try local storage
-          const localMessages = chatService.getMessagesFromLocalStorage(roomId)
+          const localMessages = chatService.getMessagesFromLocalStorage(roomId);
 
           if (localMessages.length > 0) {
             // Нормализуем сообщения из localStorage
@@ -295,82 +295,82 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
                 // Преобразуем senderId и recipientId в числа
                 senderId: Number(message.senderId),
                 recipientId: Number(message.recipientId),
-              }
-            })
+              };
+            });
 
-            const uniqueMessages = removeDuplicates(normalizedMessages)
-            setMessages(uniqueMessages)
-            messagesRef.current = uniqueMessages
+            const uniqueMessages = removeDuplicates(normalizedMessages);
+            setMessages(uniqueMessages);
+            messagesRef.current = uniqueMessages;
           }
         }
       } catch (error) {
-        console.error("Error initializing chat:", error)
-        setConnected(false)
+        console.error("Error initializing chat:", error);
+        setConnected(false);
 
         // If failed to initialize chat, try to get messages from localStorage
-        const localMessages = chatService.getMessagesFromLocalStorage(roomId)
+        const localMessages = chatService.getMessagesFromLocalStorage(roomId);
 
         if (localMessages.length > 0) {
-          setMessages(localMessages)
-          messagesRef.current = localMessages
+          setMessages(localMessages);
+          messagesRef.current = localMessages;
         }
       }
-    }
+    };
 
     // Initialize chat immediately
-    initializeChat()
+    initializeChat();
 
     return () => {
-      mounted = false
-      chatService.disconnectFromSocket()
-    }
-  }, [user, recipient, roomId, accessDenied])
+      mounted = false;
+      chatService.disconnectFromSocket();
+    };
+  }, [user, recipient, roomId, accessDenied]);
 
   // Helper function to remove duplicate messages
   const removeDuplicates = useCallback((messages: ChatMessage[]): ChatMessage[] => {
-    const uniqueMessages: ChatMessage[] = []
-    const messageMap = new Map<string, boolean>()
+    const uniqueMessages: ChatMessage[] = [];
+    const messageMap = new Map<string, boolean>();
 
     messages.forEach((message) => {
       // Create a unique key for each message
-      let messageKey: string
+      let messageKey: string;
 
       if (message.clientMessageId) {
-        messageKey = `client_${message.clientMessageId}`
+        messageKey = `client_${message.clientMessageId}`;
       } else if (message.id) {
-        messageKey = `id_${message.id}`
+        messageKey = `id_${message.id}`;
       } else {
-        messageKey = `content_${message.senderId}_${message.recipientId}_${message.content}_${message.createdAt}`
+        messageKey = `content_${message.senderId}_${message.recipientId}_${message.content}_${message.createdAt}`;
       }
 
       // If we haven't seen this message before, add it
       if (!messageMap.has(messageKey)) {
-        messageMap.set(messageKey, true)
-        uniqueMessages.push(message)
+        messageMap.set(messageKey, true);
+        uniqueMessages.push(message);
       }
-    })
+    });
 
     // Sort by date
-    return uniqueMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-  }, [])
+    return uniqueMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }, []);
 
   // Scroll to bottom on initial load and when new messages arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    if (!user || !recipient || !newMessage.trim() || !roomId) return
+    if (!user || !recipient || !newMessage.trim() || !roomId) return;
 
-    const messageContent = newMessage.trim()
-    setNewMessage("")
-    setSending(true)
+    const messageContent = newMessage.trim();
+    setNewMessage("");
+    setSending(true);
 
     try {
       // Create a unique client ID for the message
-      const clientMessageId = `client_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      const clientMessageId = `client_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
       // Create a temporary message to show immediately
       const tempMessage: ChatMessage = {
@@ -383,23 +383,23 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
         read: false,
         clientMessageId: clientMessageId,
         pending: true,
-      }
+      };
 
       // Add the temporary message to the UI
       setMessages((prev) => {
-        const newMessages = [...prev, tempMessage]
-        messagesRef.current = newMessages
+        const newMessages = [...prev, tempMessage];
+        messagesRef.current = newMessages;
 
         // Save to localStorage
-        chatService.saveMessagesToLocalStorage(roomId, newMessages)
+        chatService.saveMessagesToLocalStorage(roomId, newMessages);
 
-        return newMessages
-      })
+        return newMessages;
+      });
 
       // Scroll to the new message
       setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-      }, 100)
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
 
       // Send the message to the server
       chatService.sendMessage({
@@ -408,109 +408,109 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
         recipientId: recipient.id,
         content: messageContent,
         clientMessageId: clientMessageId,
-      })
+      });
 
       // Автоматически обновляем статус сообщения через 3 секунды, если не получили подтверждение
       setTimeout(() => {
         setMessages((prevMessages) => {
           const pendingIndex = prevMessages.findIndex(
-            (m) => m.clientMessageId === clientMessageId && m.pending === true,
-          )
+            (m) => m.clientMessageId === clientMessageId && m.pending === true
+          );
 
           if (pendingIndex >= 0) {
-            const newMessages = [...prevMessages]
+            const newMessages = [...prevMessages];
             newMessages[pendingIndex] = {
               ...newMessages[pendingIndex],
               pending: false,
-            }
+            };
 
             // Сохраняем обновленные сообщения в localStorage
-            chatService.saveMessagesToLocalStorage(roomId, newMessages)
+            chatService.saveMessagesToLocalStorage(roomId, newMessages);
 
-            return newMessages
+            return newMessages;
           }
 
-          return prevMessages
-        })
-      }, 3000)
+          return prevMessages;
+        });
+      }, 3000);
 
       // Focus the input field
-      inputRef.current?.focus()
+      inputRef.current?.focus();
     } catch (error) {
-      console.error("Error sending message:", error)
+      console.error("Error sending message:", error);
       toast({
         title: "Error sending message",
         description: "Failed to send message. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setSending(false)
+      setSending(false);
     }
-  }
+  };
 
   const handleBack = () => {
     if (onBack) {
-      onBack()
+      onBack();
     } else {
-      router.push("/messages")
+      router.push("/messages");
     }
-  }
+  };
 
   // Принудительное обновление сообщений из API
   const refreshMessages = async () => {
-    if (!roomId) return
+    if (!roomId) return;
 
-    setFetchingMessages(true)
+    setFetchingMessages(true);
     try {
       // Запрашиваем сообщения напрямую из API
-      const apiMessages = await chatService.fetchMessagesFromAPI(roomId)
+      const apiMessages = await chatService.fetchMessagesFromAPI(roomId);
 
       if (apiMessages && apiMessages.length > 0) {
         // Нормализуем сообщения
         const normalizedMessages = apiMessages.map((message) => ({
           ...message,
           roomId: roomId,
-        }))
+        }));
 
         // Обновляем состояние
-        const uniqueMessages = removeDuplicates(normalizedMessages)
-        setMessages(uniqueMessages)
-        messagesRef.current = uniqueMessages
+        const uniqueMessages = removeDuplicates(normalizedMessages);
+        setMessages(uniqueMessages);
+        messagesRef.current = uniqueMessages;
 
         // Сохраняем в localStorage
-        chatService.saveMessagesToLocalStorage(roomId, uniqueMessages)
+        chatService.saveMessagesToLocalStorage(roomId, uniqueMessages);
 
         toast({
           title: "Messages refreshed",
           description: `Retrieved ${uniqueMessages.length} messages from the server`,
-        })
+        });
       } else {
         toast({
           title: "No messages found",
           description: "No messages found in the database",
-        })
+        });
       }
     } catch (error) {
-      console.error("Error refreshing messages:", error)
+      console.error("Error refreshing messages:", error);
       toast({
         title: "Error refreshing messages",
         description: "Failed to refresh messages from the server",
         variant: "destructive",
-      })
+      });
     } finally {
-      setFetchingMessages(false)
+      setFetchingMessages(false);
     }
-  }
+  };
 
   // Очистка истории сообщений
   const clearChatHistory = () => {
-    chatService.clearMessagesToLocalStorage(roomId)
-    setMessages([])
+    chatService.clearMessagesToLocalStorage(roomId);
+    setMessages([]);
     toast({
       title: "Chat history cleared",
       description: "All message history has been cleared from localStorage",
-    })
-  }
+    });
+  };
 
   // Show loading state
   if (loading) {
@@ -549,7 +549,7 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
           <Skeleton className="h-10 w-full rounded-full" />
         </div>
       </div>
-    )
+    );
   }
 
   // Show access denied message
@@ -560,7 +560,7 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
         <p className="text-[#737373] text-center mb-4">You don't have permission to view this conversation.</p>
         <Button onClick={handleBack}>Back to Messages</Button>
       </div>
-    )
+    );
   }
 
   // Show error if recipient not found
@@ -573,7 +573,7 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
         </p>
         <Button onClick={handleBack}>Back to Messages</Button>
       </div>
-    )
+    );
   }
 
   return (
@@ -596,7 +596,7 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <TooltipProvider>
+          {/* <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon" onClick={refreshMessages} disabled={fetchingMessages}>
@@ -618,7 +618,7 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
                 <p>Clear Chat History</p>
               </TooltipContent>
             </Tooltip>
-          </TooltipProvider>
+          </TooltipProvider> */}
         </div>
       </div>
 
@@ -656,7 +656,7 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
         ) : (
           messages.map((message, index) => {
             // Определяем, является ли текущий пользователь отправителем сообщения
-            const isCurrentUserSender = user && Number(message.senderId) === Number(user.id)
+            const isCurrentUserSender = user && Number(message.senderId) === Number(user.id);
 
             return (
               <div
@@ -674,7 +674,7 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
                     className={cn(
                       "p-3 rounded-2xl text-sm",
                       isCurrentUserSender ? "bg-[#4d00ff] text-white" : "bg-[#efefef]",
-                      message.pending && "opacity-70",
+                      message.pending && "opacity-70"
                     )}
                   >
                     <p>{message.content}</p>
@@ -685,7 +685,7 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
                   </div>
                 </div>
               </div>
-            )
+            );
           })
         )}
         <div ref={messagesEndRef} />
@@ -708,7 +708,7 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
             size="sm"
             className={cn(
               "text-[#0095f6] font-medium",
-              (!newMessage.trim() || sending) && "opacity-50 cursor-not-allowed",
+              (!newMessage.trim() || sending) && "opacity-50 cursor-not-allowed"
             )}
             disabled={!newMessage.trim() || sending}
           >
@@ -717,6 +717,5 @@ export function ChatConversation({ recipientUsername, onBack, isMobile = false }
         </div>
       </form>
     </div>
-  )
+  );
 }
-

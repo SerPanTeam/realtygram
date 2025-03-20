@@ -1,110 +1,110 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { Heart, MessageCircle, Send, Bookmark } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import type { Post as PostType } from "@/lib/types"
-import { postApi } from "@/lib/api"
-import { useAuth } from "@/lib/auth-context"
-import { formatImageUrl } from "@/lib/image-utils"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { Heart, MessageCircle, Send, Bookmark } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import type { Post as PostType } from "@/lib/types";
+import { postApi } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
+import { formatImageUrl } from "@/lib/image-utils";
+import { useRouter } from "next/navigation";
 
 interface FeedPostProps {
-  post: PostType
+  post: PostType;
 }
 
 export function FeedPost({ post }: FeedPostProps) {
-  const [liked, setLiked] = useState(post.favorited === true)
+  const [liked, setLiked] = useState(post.favorited === true);
   console.log(post);
-  const [likesCount, setLikesCount] = useState(post.favoritesCount)
-  const [commentsCount, setCommentsCount] = useState(post.comments?.length || 0)
-  const { user } = useAuth()
-  const router = useRouter()
+  const [likesCount, setLikesCount] = useState(post.favoritesCount);
+  const [commentsCount, setCommentsCount] = useState(post.comments?.length || 0);
+  const { user } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     const fetchPostStats = async () => {
-      if (!user?.token) return
+      if (!user?.token) return;
 
       try {
-        const stats = await postApi.getStats(post.slug, user.token)
-        setLikesCount(stats.likes)
-        setCommentsCount(stats.comments)
+        const stats = await postApi.getStats(post.slug, user.token);
+        setLikesCount(stats.likes);
+        setCommentsCount(stats.comments);
       } catch (error) {
-        console.error(`Error fetching post stats for ${post.slug}:`, error)
-        const commentsCount = Array.isArray(post.comments) ? post.comments.length : 0
-        setLikesCount(post.favoritesCount)
-        setCommentsCount(commentsCount)
+        console.error(`Error fetching post stats for ${post.slug}:`, error);
+        const commentsCount = Array.isArray(post.comments) ? post.comments.length : 0;
+        setLikesCount(post.favoritesCount);
+        setCommentsCount(commentsCount);
       }
-    }
+    };
 
-    fetchPostStats()
-    setLiked(post.favorited === true)
-  }, [post.slug, post.favoritesCount, post.comments, post.favorited, user])
+    fetchPostStats();
+    setLiked(post.favorited === true);
+  }, [post.slug, post.favoritesCount, post.comments, post.favorited, user]);
 
   const handleLike = async () => {
     if (!user?.token) {
-      router.push(`/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`)
-      return
+      router.push(`/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`);
+      return;
     }
 
     try {
-      setLiked(!liked)
-      const newLikesCount = liked ? likesCount - 1 : likesCount + 1
-      setLikesCount(newLikesCount)
+      setLiked(!liked);
+      const newLikesCount = liked ? likesCount - 1 : likesCount + 1;
+      setLikesCount(newLikesCount);
 
       if (liked) {
-        await postApi.unfavorite(post.slug, user.token)
+        await postApi.unfavorite(post.slug, user.token);
       } else {
-        await postApi.favorite(post.slug, user.token)
+        await postApi.favorite(post.slug, user.token);
       }
 
-      const stats = await postApi.getStats(post.slug, user.token)
-      setLikesCount(stats.likes)
-      setCommentsCount(stats.comments)
+      const stats = await postApi.getStats(post.slug, user.token);
+      setLikesCount(stats.likes);
+      setCommentsCount(stats.comments);
     } catch (err) {
-      console.error("Error toggling like:", err)
-      setLiked(liked)
-      setLikesCount(likesCount)
+      console.error("Error toggling like:", err);
+      setLiked(liked);
+      setLikesCount(likesCount);
     }
-  }
+  };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffTime = Math.abs(now.getTime() - date.getTime())
-    const diffMinutes = Math.floor(diffTime / (1000 * 60))
-    const diffHours = Math.floor(diffTime / (1000 * 60 * 60))
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffMinutes = Math.floor(diffTime / (1000 * 60));
+    const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffMinutes < 1) {
-      return "just now"
+      return "just now";
     } else if (diffMinutes < 60) {
-      return `${diffMinutes}m`
+      return `${diffMinutes}m`;
     } else if (diffHours < 24) {
-      return `${diffHours}h`
+      return `${diffHours}h`;
     } else if (diffDays < 7) {
-      return `${diffDays}d`
+      return `${diffDays}d`;
     } else if (diffDays < 30) {
-      return `${Math.floor(diffDays / 7)}w`
+      return `${Math.floor(diffDays / 7)}w`;
     } else if (diffDays < 365) {
-      return `${Math.floor(diffDays / 30)}mo`
+      return `${Math.floor(diffDays / 30)}mo`;
     } else {
-      return `${Math.floor(diffDays / 365)}y`
+      return `${Math.floor(diffDays / 365)}y`;
     }
-  }
+  };
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) {
-      return `${(num / 1000000).toFixed(1)}M`
+      return `${(num / 1000000).toFixed(1)}M`;
     } else if (num >= 1000) {
-      return `${(num / 1000).toFixed(1)}K`
+      return `${(num / 1000).toFixed(1)}K`;
     }
-    return new Intl.NumberFormat().format(num)
-  }
+    return new Intl.NumberFormat().format(num);
+  };
 
-  const imageUrl = formatImageUrl(post.img) || "/placeholder.svg"
+  const imageUrl = formatImageUrl(post.img) || "/placeholder.svg";
 
   return (
     <article className="mb-6 border border-[#dbdbdb] rounded-sm bg-white">
@@ -145,16 +145,16 @@ export function FeedPost({ post }: FeedPostProps) {
           <button onClick={handleLike} className="focus:outline-none">
             <Heart className={`h-6 w-6 ${liked ? "fill-red-500 text-red-500" : ""}`} />
           </button>
-          <Link href={`/p/${post.slug}`}>
+          {/* <Link href={`/p/${post.slug}`}>
             <MessageCircle className="h-6 w-6" />
           </Link>
           <button className="focus:outline-none">
             <Send className="h-6 w-6" />
-          </button>
+          </button> */}
         </div>
-        <button className="focus:outline-none">
+        {/* <button className="focus:outline-none">
           <Bookmark className="h-6 w-6" />
-        </button>
+        </button> */}
       </div>
 
       <div className="px-3 pb-1">
@@ -175,8 +175,8 @@ export function FeedPost({ post }: FeedPostProps) {
           {commentsCount > 0
             ? `View all comments (${formatNumber(commentsCount)})`
             : post.comments && post.comments.length > 0
-              ? `View all comments (${post.comments.length})`
-              : "Add a comment"}
+            ? `View all comments (${post.comments.length})`
+            : "Add a comment"}
         </Link>
       </div>
 
@@ -198,6 +198,5 @@ export function FeedPost({ post }: FeedPostProps) {
         </div>
       ) : null}
     </article>
-  )
+  );
 }
-

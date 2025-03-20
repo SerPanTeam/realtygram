@@ -289,16 +289,16 @@ export default function PostPage({ params }: { params: { slug: string } }) {
                     <button onClick={handleLike}>
                       <Heart className={`h-6 w-6 ${liked ? "fill-red-500 text-red-500" : ""}`} />
                     </button>
-                    <button onClick={handleCommentFocus}>
+                    {/* <button onClick={handleCommentFocus}>
                       <MessageCircle className="h-6 w-6" />
                     </button>
                     <button>
                       <Send className="h-6 w-6" />
-                    </button>
+                    </button> */}
                   </div>
-                  <button>
+                  {/* <button>
                     <Bookmark className="h-6 w-6" />
-                  </button>
+                  </button> */}
                 </div>
 
                 {/* Лайки */}
