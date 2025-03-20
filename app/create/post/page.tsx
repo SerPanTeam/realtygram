@@ -1,79 +1,79 @@
-"use client"
+"use client";
 
-import { useState, useRef, useCallback, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import Image from "next/image"
-import { Sidebar } from "@/components/sidebar"
-import { MobileNavigation } from "@/components/mobile-navigation"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
-import { ImagePlus, X, Smile, MapPin, Tag } from "lucide-react"
-import { useDropzone } from "react-dropzone"
-import { postApi, uploadApi, profileApi } from "@/lib/api"
-import { useAuth } from "@/lib/auth-context"
-import { toast } from "@/hooks/use-toast"
-import { formatImageUrl } from "@/lib/image-utils"
+import { useState, useRef, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { Sidebar } from "@/components/sidebar";
+import { MobileNavigation } from "@/components/mobile-navigation";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { ImagePlus, X, Smile, MapPin, Tag } from "lucide-react";
+import { useDropzone } from "react-dropzone";
+import { postApi, uploadApi, profileApi } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
+import { toast } from "@/hooks/use-toast";
+import { formatImageUrl } from "@/lib/image-utils";
 
 export default function CreatePostPage() {
-  const [step, setStep] = useState(1)
-  const [selectedImage, setSelectedImage] = useState<string | null>(null)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [title, setTitle] = useState("")
-  const [content, setContent] = useState("")
-  const [tagList, setTagList] = useState<string[]>([])
-  const [tagInput, setTagInput] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [createdPost, setCreatedPost] = useState<any>(null)
-  const [userProfileImage, setUserProfileImage] = useState<string>("/placeholder.svg")
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const router = useRouter()
-  const { user } = useAuth()
+  const [step, setStep] = useState(1);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [tagList, setTagList] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [createdPost, setCreatedPost] = useState<any>(null);
+  const [userProfileImage, setUserProfileImage] = useState<string>("/placeholder.svg");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+  const { user } = useAuth();
 
   // Загружаем актуальные данные пользователя, включая изображение
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (user?.username && user?.token) {
         try {
-          const { profile } = await profileApi.get(user.username, user.token)
+          const { profile } = await profileApi.get(user.username, user.token);
           if (profile && profile.img) {
-            const formattedImageUrl = formatImageUrl(profile.img)
-            console.log("Fetched user profile image:", formattedImageUrl)
-            setUserProfileImage(formattedImageUrl)
+            const formattedImageUrl = formatImageUrl(profile.img);
+            console.log("Fetched user profile image:", formattedImageUrl);
+            setUserProfileImage(formattedImageUrl);
           } else {
-            console.log("No profile image found in profile data")
-            setUserProfileImage("/placeholder.svg")
+            console.log("No profile image found in profile data");
+            setUserProfileImage("/placeholder.svg");
           }
         } catch (error) {
-          console.error("Error fetching user profile:", error)
-          setUserProfileImage("/placeholder.svg")
+          console.error("Error fetching user profile:", error);
+          setUserProfileImage("/placeholder.svg");
         }
       }
-    }
+    };
 
-    fetchUserProfile()
-  }, [user])
+    fetchUserProfile();
+  }, [user]);
 
   // Check authentication
   if (!user) {
-    router.push("/login")
-    return null
+    router.push("/login");
+    return null;
   }
 
   // Handle file drop via Dropzone
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
       if (acceptedFiles.length > 0) {
-        const file = acceptedFiles[0]
-        setSelectedFile(file)
-        const imageUrl = URL.createObjectURL(file)
-        setSelectedImage(imageUrl)
-        setStep(2)
+        const file = acceptedFiles[0];
+        setSelectedFile(file);
+        const imageUrl = URL.createObjectURL(file);
+        setSelectedImage(imageUrl);
+        setStep(2);
       }
     },
-    [setSelectedFile, setSelectedImage, setStep],
-  )
+    [setSelectedFile, setSelectedImage, setStep]
+  );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -82,51 +82,51 @@ export default function CreatePostPage() {
     },
     maxFiles: 1,
     disabled: step !== 1,
-  })
+  });
 
   // Handle tag addition
   const handleAddTag = () => {
     if (tagInput.trim() && !tagList.includes(tagInput.trim())) {
-      setTagList([...tagList, tagInput.trim()])
-      setTagInput("")
+      setTagList([...tagList, tagInput.trim()]);
+      setTagInput("");
     }
-  }
+  };
 
   // Handle tag removal
   const handleRemoveTag = (tag: string) => {
-    setTagList(tagList.filter((t) => t !== tag))
-  }
+    setTagList(tagList.filter((t) => t !== tag));
+  };
 
   // Handle form submission
   const handleSubmit = async () => {
     if (!selectedFile || !title.trim() || !content.trim() || !user.token) {
-      setError("Please fill in all fields and select an image")
-      return
+      setError("Please fill in all fields and select an image");
+      return;
     }
 
-    setIsSubmitting(true)
-    setError(null)
+    setIsSubmitting(true);
+    setError(null);
 
     try {
       // Сначала загружаем изображение
-      console.log("Uploading image...")
-      let imageUrl = ""
+      console.log("Uploading image...");
+      let imageUrl = "";
 
       try {
         // Пробуем загрузить через нашу новую функцию
-        imageUrl = await uploadApi.uploadImage(selectedFile, user.token)
+        imageUrl = await uploadApi.uploadImage(selectedFile, user.token);
       } catch (uploadError) {
-        console.error("Error uploading image:", uploadError)
+        console.error("Error uploading image:", uploadError);
 
         // Если не удалось загрузить, используем временный URL
         // Это позволит создать пост, но изображение будет временным
-        imageUrl = "https://api.panchenko.work/uploads/temp.jpg"
+        imageUrl = "https://api.panchenko.work/uploads/temp.jpg";
       }
 
-      console.log("Image URL:", imageUrl)
+      console.log("Image URL:", imageUrl);
 
       // Теперь создаем пост с URL изображения
-      console.log("Creating post with image URL...")
+      console.log("Creating post with image URL...");
       const { post } = await postApi.create(
         {
           title,
@@ -134,18 +134,18 @@ export default function CreatePostPage() {
           img: imageUrl, // Используем полученный URL изображения
           tagList,
         },
-        user.token,
-      )
+        user.token
+      );
 
-      setCreatedPost(post)
+      setCreatedPost(post);
 
       // Если мы использовали временный URL, попробуем обновить пост с реальным изображением
       if (imageUrl.includes("temp.jpg") && post.slug) {
         try {
-          console.log("Updating post with actual image...")
-          await uploadApi.postImage(post.slug, selectedFile, user.token)
+          console.log("Updating post with actual image...");
+          await uploadApi.postImage(post.slug, selectedFile, user.token);
         } catch (updateError) {
-          console.error("Error updating post with actual image:", updateError)
+          console.error("Error updating post with actual image:", updateError);
           // Продолжаем, даже если обновление не удалось
         }
       }
@@ -154,37 +154,37 @@ export default function CreatePostPage() {
       toast({
         title: "Post created",
         description: "Your post has been successfully created.",
-      })
-      router.push(`/p/${post.slug}`)
+      });
+      router.push(`/p/${post.slug}`);
     } catch (err) {
-      console.error("Error creating post:", err)
-      setError("Failed to create post. Please try again.")
+      console.error("Error creating post:", err);
+      setError("Failed to create post. Please try again.");
       toast({
         title: "Post creation failed",
         description: "Failed to create your post. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   // Clear selected image
   const clearImage = () => {
     if (selectedImage) {
-      URL.revokeObjectURL(selectedImage)
+      URL.revokeObjectURL(selectedImage);
     }
-    setSelectedImage(null)
-    setSelectedFile(null)
-    setStep(1)
+    setSelectedImage(null);
+    setSelectedFile(null);
+    setStep(1);
     if (fileInputRef.current) {
-      fileInputRef.current.value = ""
+      fileInputRef.current.value = "";
     }
-  }
+  };
 
   const handleSelectButtonClick = useCallback(() => {
-    fileInputRef.current?.click()
-  }, [])
+    fileInputRef.current?.click();
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-white">
@@ -199,7 +199,7 @@ export default function CreatePostPage() {
               <button onClick={() => router.push("/feed")} className="text-black hover:text-gray-600" type="button">
                 <X className="h-6 w-6" />
               </button>
-              <h1 className="text-base font-semibold">Create new property listing</h1>
+              <h1 className="text-base font-semibold">Create new post</h1>
               <Button
                 onClick={step === 1 ? handleSelectButtonClick : handleSubmit}
                 disabled={step === 1 ? false : isSubmitting || !selectedImage || !title.trim() || !content.trim()}
@@ -240,8 +240,8 @@ export default function CreatePostPage() {
                       variant="default"
                       className="mt-4 bg-[#0095f6] hover:bg-[#0095f6]/90"
                       onClick={(e) => {
-                        e.stopPropagation()
-                        fileInputRef.current?.click()
+                        e.stopPropagation();
+                        fileInputRef.current?.click();
                       }}
                     >
                       Select from computer
@@ -265,8 +265,8 @@ export default function CreatePostPage() {
                             height={32}
                             className="object-cover"
                             onError={(e) => {
-                              console.error("Error loading user image:", e)
-                              ;(e.target as HTMLImageElement).src = "/placeholder.svg"
+                              console.error("Error loading user image:", e);
+                              (e.target as HTMLImageElement).src = "/placeholder.svg";
                             }}
                           />
                         </div>
@@ -298,15 +298,15 @@ export default function CreatePostPage() {
                   {/* Emoji and location tools */}
                   <div className="flex items-center justify-between p-3 border-t border-[#dbdbdb]">
                     <div className="flex items-center">
-                      <Smile className="h-6 w-6 text-[#737373] mr-2" />
+                      {/* <Smile className="h-6 w-6 text-[#737373] mr-2" />
                       <Tag className="h-6 w-6 text-[#737373] mr-2" />
-                      <MapPin className="h-6 w-6 text-[#737373]" />
+                      <MapPin className="h-6 w-6 text-[#737373]" /> */}
                     </div>
                     <span className="text-xs text-[#737373]">{content.length}/2,200</span>
                   </div>
 
                   {/* Tags */}
-                  <div className="p-3 border-t border-[#dbdbdb]">
+                  {/* <div className="p-3 border-t border-[#dbdbdb]">
                     <div className="flex items-center mb-2">
                       <span className="text-sm font-medium mr-2">Tags:</span>
                       <div className="flex flex-wrap gap-1">
@@ -337,7 +337,7 @@ export default function CreatePostPage() {
                         Add
                       </Button>
                     </div>
-                  </div>
+                  </div> */}
                 </div>
               )}
             </div>
@@ -347,6 +347,5 @@ export default function CreatePostPage() {
 
       <MobileNavigation className="md:hidden" />
     </div>
-  )
+  );
 }
-

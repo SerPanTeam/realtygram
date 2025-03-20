@@ -1,40 +1,41 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
-import { Separator } from "@/components/ui/separator"
-import { useAuth } from "@/lib/auth-context"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { LoginForm } from "@/components/auth/login-form"
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/lib/auth-context";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { LoginForm } from "@/components/auth/login-form";
+import Image from "next/image";
 
 export default function LoginPage() {
-  const [redirectMessage, setRedirectMessage] = useState("")
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const { user, isLoading } = useAuth()
+  const [redirectMessage, setRedirectMessage] = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, isLoading } = useAuth();
 
   // Check if there's a callbackUrl parameter
   useEffect(() => {
-    const callbackUrl = searchParams.get("callbackUrl")
+    const callbackUrl = searchParams.get("callbackUrl");
     if (callbackUrl) {
-      setRedirectMessage("Please log in to access this page")
+      setRedirectMessage("Please log in to access this page");
     }
-  }, [searchParams])
+  }, [searchParams]);
 
   // If user is already logged in, redirect to feed
   useEffect(() => {
     if (user && !isLoading) {
-      router.push("/feed")
+      router.push("/feed");
     }
-  }, [user, isLoading, router])
+  }, [user, isLoading, router]);
 
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#fafafa] px-4">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
       </div>
-    )
+    );
   }
 
   return (
@@ -42,6 +43,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="rounded-lg bg-white p-8 shadow-sm border border-[#dbdbdb]">
           <div className="mb-8 text-center">
+            <Image src="/log.png" alt="RealtyGRAM Logo" width={250} className="object-contain block mx-auto" />
             <h1 className="text-4xl font-bold italic tracking-tighter">RealtyGRAM</h1>
             <p className="mt-2 text-[#737373]">Connect with real estate professionals</p>
           </div>
@@ -77,6 +79,5 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
-

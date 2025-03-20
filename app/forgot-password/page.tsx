@@ -1,36 +1,37 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Separator } from "@/components/ui/separator"
-import { Lock } from "lucide-react"
-import { toast } from "@/components/ui/use-toast"
+import { useState } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { Lock } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
+import Image from "next/image";
 
 // Обновляем страницу восстановления пароля с улучшенным дизайном
 export default function ForgotPasswordPage() {
-  const [identifier, setIdentifier] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState(false)
+  const [identifier, setIdentifier] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError("")
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
     // Удаляем слеш в конце URL, если он есть
     const baseUrl = process.env.NEXT_PUBLIC_API_URL?.endsWith("/")
       ? process.env.NEXT_PUBLIC_API_URL.slice(0, -1)
-      : process.env.NEXT_PUBLIC_API_URL
+      : process.env.NEXT_PUBLIC_API_URL;
 
     try {
       if (!identifier) {
-        setError("Please enter your email, phone, or username")
-        return
+        setError("Please enter your email, phone, or username");
+        return;
       }
 
       const response = await fetch(`${baseUrl}/api/auth/forgot-password`, {
@@ -39,38 +40,39 @@ export default function ForgotPasswordPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ identifier: identifier }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Something went wrong")
+        throw new Error(data.message || "Something went wrong");
       }
 
-      setSuccess(true)
+      setSuccess(true);
 
       toast({
         title: "Reset link sent",
         description: "If an account with that email exists, we've sent a password reset link.",
-      })
+      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send reset link. Please try again.")
+      setError(err instanceof Error ? err.message : "Failed to send reset link. Please try again.");
 
       toast({
         title: "Error",
         description: "Failed to send reset link. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#fafafa] px-4">
       <div className="w-full max-w-md">
         <div className="rounded-lg bg-white p-8 shadow-sm border border-[#dbdbdb]">
           <div className="mb-8 text-center">
+            <Image src="/log.png" alt="RealtyGRAM Logo" width={250} className="object-contain block mx-auto" />
             <h1 className="text-4xl font-bold italic tracking-tighter">RealtyGRAM</h1>
           </div>
 
@@ -147,6 +149,5 @@ export default function ForgotPasswordPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
-

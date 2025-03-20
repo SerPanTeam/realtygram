@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatImageUrl } from "@/lib/image-utils";
 import { notificationApi } from "@/lib/api";
+import Image from "next/image";
 
 interface SidebarProps {
   className?: string;
@@ -89,7 +90,7 @@ export function Sidebar({ className }: SidebarProps) {
     >
       <div className="flex h-full flex-col p-4">
         <Link href="/" className="mb-8 py-4 text-2xl font-bold italic tracking-tighter">
-          RealtyGRAM
+          <Image src="/log.png" alt="RealtyGRAM Logo" width={250} className="object-contain" />
         </Link>
 
         <nav className="flex-1">
